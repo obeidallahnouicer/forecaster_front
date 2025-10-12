@@ -175,10 +175,3 @@ All components use semantic tokens from the design system.
 - [Recharts](https://recharts.org)
 - [Framer Motion](https://www.framer.com/motion)
 
-## 📄 License
-
-MIT
-
----
-
-Built with ❤️ using Clean Architecture and Cinematic Design
