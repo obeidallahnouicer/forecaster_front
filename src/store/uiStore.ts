@@ -1,7 +1,7 @@
 // Zustand Store - UI State Management
 
 import { create } from "zustand";
-import { Article, Settings, SummaryRow } from "@/domain/types";
+import { Article, Settings, SummaryRow, ChatSession } from "@/domain/types";
 import { apiClient } from "@/infrastructure/apiClient";
 
 interface UIState {
@@ -18,6 +18,9 @@ interface UIState {
   // Session
   sessionId: string | null;
   setSessionId: (id: string | null) => void;
+  // Session frequency
+  sessionFrequency: "yearly" | "monthly";
+  setSessionFrequency: (f: "yearly" | "monthly") => void;
 
   // Settings
   settings: Settings;
@@ -33,15 +36,25 @@ interface UIState {
   // UI State
   isUploading: boolean;
   setIsUploading: (value: boolean) => void;
-  
+
   isForecastingAll: boolean;
   setIsForecastingAll: (value: boolean) => void;
-  
+
   forecastProgress: number;
   setForecastProgress: (progress: number) => void;
-  
+
   activeTab: "forecast-all" | "single-article" | "reports";
   setActiveTab: (tab: "forecast-all" | "single-article" | "reports") => void;
+
+  // Theme
+  theme: "light" | "dark" | "system";
+  setTheme: (theme: "light" | "dark" | "system") => void;
+
+  // Chat
+  chatSession: ChatSession | null;
+  setChatSession: (session: ChatSession | null) => void;
+  chatSessions: ChatSession[];
+  setChatSessions: (sessions: ChatSession[]) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -58,6 +71,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   // Session
   sessionId: null,
   setSessionId: (id) => set({ sessionId: id }),
+  // Session frequency (yearly | monthly)
+  sessionFrequency: "yearly",
+  setSessionFrequency: (f: "yearly" | "monthly") => set({ sessionFrequency: f }),
 
   // Settings
   settings: {
@@ -74,15 +90,53 @@ export const useUIStore = create<UIState>((set, get) => ({
   // UI State
   isUploading: false,
   setIsUploading: (value) => set({ isUploading: value }),
-  
+
   isForecastingAll: false,
   setIsForecastingAll: (value) => set({ isForecastingAll: value }),
-  
+
   forecastProgress: 0,
   setForecastProgress: (progress) => set({ forecastProgress: progress }),
-  
+
   activeTab: "forecast-all",
   setActiveTab: (tab) => set({ activeTab: tab }),
+
+  // Theme
+  theme: (() => {
+    // Initialize theme from localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'light' || saved === 'dark' || saved === 'system') {
+        return saved;
+      }
+    }
+    return 'system';
+  })() as "light" | "dark" | "system",
+  setTheme: (newTheme: "light" | "dark" | "system") => {
+    set({ theme: newTheme });
+    // Persist to localStorage
+    localStorage.setItem('theme', newTheme);
+    // Apply theme to document
+    const root = document.documentElement;
+    if (newTheme === 'dark') {
+      root.classList.add('dark');
+    } else if (newTheme === 'light') {
+      root.classList.remove('dark');
+    } else {
+      // System theme - check OS preference
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (isDark) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    }
+  },
+
+  // Chat
+  chatSession: null,
+  setChatSession: (session) => set({ chatSession: session }),
+  chatSessions: [],
+  setChatSessions: (sessions) => set({ chatSessions: sessions }),
 
   // Summary (reports)
   summary: [],
@@ -90,7 +144,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   isFetchingSummary: false,
   setIsFetchingSummary: (v) => set({ isFetchingSummary: v }),
   fetchSummary: async (force = false) => {
-  const sid: string | null = get().sessionId;
+    const sid: string | null = get().sessionId;
     if (!sid) {
       // no session — nothing to fetch
       return;

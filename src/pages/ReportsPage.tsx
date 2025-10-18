@@ -35,7 +35,7 @@ export const ReportsPage = () => {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold gradient-text mb-2">Summary & Reports</h1>
-        <p className="text-muted-foreground text-xs sm:text-sm">
+  <p className="text-gray-500 text-xs sm:text-sm">
           Visual insights from all forecasted articles
         </p>
       </motion.div>

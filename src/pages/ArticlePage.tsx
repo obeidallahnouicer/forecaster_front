@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Search, TrendingUp, Database, Calendar } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
-import { generateMockForecast } from "@/infrastructure/mockData";
 import { apiClient } from "@/infrastructure/apiClient";
 import { ForecastResult } from "@/domain/types";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -13,6 +12,7 @@ export const ArticlePage = () => {
   const { articles, selectedArticle, setSelectedArticle, settings, updateSettings, sessionId } = useUIStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [forecast, setForecast] = useState<ForecastResult | null>(null);
+  const [forceRecompute, setForceRecompute] = useState<boolean>(true);
   
 
   const filteredArticles = articles.filter(
@@ -24,79 +24,92 @@ export const ArticlePage = () => {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      if (!selectedArticle) return;
-      // Try backend first
-      if (sessionId) {
-        try {
-          const resRaw = await apiClient.forecastArticle(sessionId, selectedArticle, settings, false, true, settings.includeMethods);
-          // Defensive mapping from backend shape to ForecastResult
-          const r: any = resRaw ?? {};
+      if (!selectedArticle || !sessionId) return;
+      
+      try {
+        const sessionFreq = useUIStore.getState().sessionFrequency || "yearly";
+        const includeMethodsStr = settings.includeMethods?.join(",");
+        
+        const resRaw = sessionFreq === "monthly"
+          ? await apiClient.forecastMonthlyArticle(
+              sessionId,
+              selectedArticle,
+              settings.period,
+              settings.alpha,
+              forceRecompute,
+              settings.fastMode,
+              includeMethodsStr
+            )
+          : await apiClient.forecastArticle(
+              sessionId,
+              selectedArticle,
+              settings.period,
+              settings.alpha,
+              forceRecompute,
+              settings.fastMode,
+              includeMethodsStr
+            );
+        
+        // Defensive mapping from backend shape to ForecastResult
+        const r: any = resRaw ?? {};
 
-          // helper to parse possibly stringified arrays like "[1,2,3]"
-          const parseArray = (v: any) => {
-            if (Array.isArray(v)) return v;
-            if (typeof v === "string") {
-              try {
-                const parsed = JSON.parse(v);
-                if (Array.isArray(parsed)) return parsed;
-              } catch (e) {
-                // fallback: split by comma
-                return v.replace(/\[|\]|\s+/g, "").split(",").filter(Boolean).map((s) => Number(s));
-              }
+        // helper to parse possibly stringified arrays like "[1,2,3]"
+        const parseArray = (v: any) => {
+          if (Array.isArray(v)) return v;
+          if (typeof v === "string") {
+            try {
+              const parsed = JSON.parse(v);
+              if (Array.isArray(parsed)) return parsed;
+            } catch (e) {
+              // fallback: split by comma
+              return v.replace(/\[|\]|\s+/g, "").split(",").filter(Boolean).map((s) => Number(s));
             }
-            return [];
-          };
+          }
+          return [];
+        };
 
-          const years = parseArray(r.historical_years ?? r.historicalYears ?? r.years ?? []);
-          const values = parseArray(r.historical_values ?? r.historicalValues ?? r.values ?? []);
+        const years = parseArray(r.historical_years ?? r.historicalYears ?? r.years ?? []);
+        const values = parseArray(r.historical_values ?? r.historicalValues ?? r.values ?? []);
 
-          const historique = years.map((y: any, i: number) => ({ year: Number(y), value: Number(values[i] ?? 0) }));
+        const historique = years.map((y: any, i: number) => ({ year: Number(y), value: Number(values[i] ?? 0) }));
 
-          const forecasts: any[] = [];
-          const pushIfNumber = (method: string, val: any) => {
-            const n = val == null ? null : Number(val);
-            if (n !== null && !Number.isNaN(n)) forecasts.push({ method, value: n });
-          };
+        const forecasts: any[] = [];
+        const pushIfNumber = (method: string, val: any) => {
+          const n = val == null ? null : Number(val);
+          if (n !== null && !Number.isNaN(n)) forecasts.push({ method, value: n });
+        };
 
-          pushIfNumber("SMA", r.sma_forecast ?? r.smaForecast ?? r.sma);
-          pushIfNumber("ExpSmoothing", r.es_forecast ?? r.esForecast ?? r.es);
-          pushIfNumber("LinearReg", r.lr_forecast ?? r.lrForecast ?? r.lr);
-          pushIfNumber("ARIMA", r.arima_forecast ?? r.arimaForecast ?? r.arima);
-          pushIfNumber("PROPHET", r.prophet_forecast ?? r.prophetForecast ?? r.prophet);
-          pushIfNumber("XGBOOST", r.xgb_forecast ?? r.xgbForecast ?? r.xgb);
+        pushIfNumber("SMA", r.sma_forecast ?? r.smaForecast ?? r.sma);
+        pushIfNumber("ExpSmoothing", r.es_forecast ?? r.esForecast ?? r.es);
+        pushIfNumber("LinearReg", r.lr_forecast ?? r.lrForecast ?? r.lr);
+        pushIfNumber("ARIMA", r.arima_forecast ?? r.arimaForecast ?? r.arima);
+        pushIfNumber("PROPHET", r.prophet_forecast ?? r.prophetForecast ?? r.prophet);
+        pushIfNumber("XGBOOST", r.xgb_forecast ?? r.xgbForecast ?? r.xgb);
 
-          const avgForecast = Number(r.avg_forecast ?? r.avgForecast ?? 0) || 0;
-          const trendPct = Number(r.trend_pct ?? r.trendPct ?? 0) || 0;
-          const nextYear = Number(r.next_year ?? r.nextYear ?? (new Date().getFullYear() + 1));
+        const avgForecast = Number(r.avg_forecast ?? r.avgForecast ?? 0) || 0;
+        const trendPct = Number(r.trend_pct ?? r.trendPct ?? 0) || 0;
+        const nextYear = Number(r.next_year ?? r.nextYear ?? (new Date().getFullYear() + 1));
 
-          const mapped: any = {
-            ref: String(r.ref_article ?? r.ref ?? selectedArticle),
-            designation: r.designation ?? r.design ?? "",
-            marque: r.marque ?? r.brand ?? undefined,
-            famille: r.famille ?? r.family ?? undefined,
-            historique,
-            forecasts,
-            avgForecast,
-            trendPct,
-            dataPoints: Number(r.data_points ?? r.dataPoints ?? (historique.length)),
-            nextYear,
-          };
+        const mapped: any = {
+          ref: String(r.ref_article ?? r.ref ?? selectedArticle),
+          designation: r.designation ?? r.design ?? "",
+          marque: r.marque ?? r.brand ?? undefined,
+          famille: r.famille ?? r.family ?? undefined,
+          historique,
+          forecasts,
+          avgForecast,
+          trendPct,
+          dataPoints: Number(r.data_points ?? r.dataPoints ?? (historique.length)),
+          nextYear,
+        };
 
-          if (mounted) setForecast(mapped as any);
-          return;
-        } catch (err) {
-          console.warn("Backend forecast failed, falling back to mock", err);
-        }
-      }
-
-      const article = articles.find((a) => a.ref === selectedArticle);
-      if (article) {
-        const mockForecast = generateMockForecast(article);
-        if (mounted) setForecast(mockForecast);
+        if (mounted) setForecast(mapped as any);
+      } catch (err) {
+        console.error("Failed to fetch forecast for article:", err);
       }
     })();
     return () => { mounted = false };
-  }, [selectedArticle, articles, settings.includeMethods]);
+  }, [selectedArticle, sessionId, settings.period, settings.alpha, settings.fastMode, forceRecompute, settings.includeMethods]);
 
 
   const handleSelectArticle = (ref: string) => {
@@ -107,24 +120,24 @@ export const ArticlePage = () => {
     return (
       <div className="w-full max-w-6xl mx-auto space-y-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
           <div>
             <h2 className="text-xl sm:text-2xl md:text-3xl font-bold gradient-text">Single Article Analysis</h2>
-            <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+            <p className="text-gray-500 mt-1 text-xs sm:text-sm">
               Search and select an article to view detailed forecasts
             </p>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
             <Input
               placeholder="Search by reference or designation..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 sm:pl-12 h-12 sm:h-14 text-base sm:text-lg bg-card border-border"
+              className="pl-10 sm:pl-12 h-12 sm:h-14 text-base sm:text-lg bg-slate-900 border-border text-white"
             />
           </div>
 
@@ -134,11 +147,11 @@ export const ArticlePage = () => {
                 key={article.ref}
                 whileHover={{ scale: 1.02 }}
                 onClick={() => handleSelectArticle(article.ref)}
-                className="cursor-pointer rounded-lg sm:rounded-xl border border-border bg-card p-4 sm:p-6 hover:bg-card-glow hover-lift transition-colors"
+                className="cursor-pointer rounded-lg sm:rounded-xl border border-border bg-slate-900 p-4 sm:p-6 hover:shadow-lg hover-lift transition-colors"
               >
                 <p className="font-mono text-xs sm:text-sm text-primary mb-2 truncate">{article.ref}</p>
                 <h3 className="text-sm sm:text-base font-semibold mb-2 line-clamp-2">{article.designation}</h3>
-                <div className="flex gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
+                <div className="flex gap-2 text-xs sm:text-sm text-gray-500 flex-wrap">
                   {article.marque && <span className="truncate">{article.marque}</span>}
                   {article.famille && (
                     <>
@@ -185,18 +198,18 @@ export const ArticlePage = () => {
           \u2190 Back to Search
         </Button>
 
-        <div className="card-elevated rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8">
+  <div className="rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 bg-slate-900">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="min-w-0 flex-1">
               <p className="font-mono text-xs sm:text-sm text-primary mb-2 truncate">{forecast.ref}</p>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold gradient-text mb-3">{forecast.designation}</h1>
-              <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+              <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                 {forecast.marque && <span>Brand: {forecast.marque}</span>}
                 {forecast.famille && <span>Family: {forecast.famille}</span>}
               </div>
             </div>
-            <div className="flex-shrink-0 lg:ml-6">
-              <div className="text-xs sm:text-sm text-muted-foreground mb-2">Models</div>
+              <div className="flex-shrink-0 lg:ml-6">
+              <div className="text-xs sm:text-sm text-gray-500 mb-2">Models</div>
               <div className="flex flex-col gap-1">
                 {[
                   ["SMA", "SMA"],
@@ -217,8 +230,8 @@ export const ArticlePage = () => {
                         updateSettings({ includeMethods: next as any });
                       }}
                       className="accent-primary"
-                    />
-                    <span>{label}</span>
+                      />
+                    <span className="text-slate-300">{label}</span>
                   </label>
                 ))}
               </div>
@@ -226,18 +239,18 @@ export const ArticlePage = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
-            <div className="rounded-lg sm:rounded-xl border border-border bg-muted/20 p-6 sm:p-8">
+            <div className="rounded-lg sm:rounded-xl border border-border bg-slate-800 p-6 sm:p-8">
               <div className="flex items-center gap-2 sm:gap-3 mb-2">
                 <Database className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                <p className="text-xs sm:text-sm text-muted-foreground">Data Points</p>
+                <p className="text-xs sm:text-sm text-gray-500">Data Points</p>
               </div>
               <p className="text-3xl sm:text-4xl font-bold">{forecast.dataPoints}</p>
             </div>
 
-            <div className="rounded-lg sm:rounded-xl border border-border bg-muted/20 p-6 sm:p-8">
+            <div className="rounded-lg sm:rounded-xl border border-border bg-slate-800 p-6 sm:p-8">
               <div className="flex items-center gap-2 sm:gap-3 mb-2">
                 <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-secondary" />
-                <p className="text-xs sm:text-sm text-muted-foreground">Historical Trend</p>
+                <p className="text-xs sm:text-sm text-gray-500">Historical Trend</p>
               </div>
               <p className={`text-3xl sm:text-4xl font-bold ${forecast.trendPct > 0 ? "text-primary" : "text-destructive"}`}>
                 {forecast.trendPct > 0 ? "+" : ""}
@@ -248,7 +261,7 @@ export const ArticlePage = () => {
             <div className="rounded-lg sm:rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 p-6 sm:p-8 glow-primary sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 sm:gap-3 mb-2">
                 <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                <p className="text-xs sm:text-sm text-muted-foreground">Next Year Forecast</p>
+                <p className="text-xs sm:text-sm text-gray-500">Next Year Forecast</p>
               </div>
               <p className="text-4xl sm:text-5xl font-bold gradient-text">
                 {forecast.avgForecast.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} DT

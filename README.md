@@ -113,7 +113,13 @@ Example `.env`:
 VITE_API_URL=http://localhost:8000/api
 ```
 
-## 🔒 Environment Variables
+## � Analytics Dashboard
+
+This project now includes an interactive Analytics Dashboard at `/analytics` that consumes the backend endpoints `/api/status`, `/api/metrics`, and `/api/documents`.
+
+Use the provided `.env.example` to set `VITE_API_URL` or `REACT_APP_API_BASE_URL` to point to your FastAPI backend.
+
+## �🔒 Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|

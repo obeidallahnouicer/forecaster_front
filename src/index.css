@@ -8,22 +8,22 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Cinematic Dark Theme - Deep Midnight + Gold/Cyan Accents */
-    --background: 222 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark modern theme - deep midnight with gold/cyan accents, trend colors */
+    --background: 222 84% 4.9%;      /* deep midnight dark */
+    --foreground: 210 40% 98%;       /* near white for text */
 
-    --card: 225 30% 8%;
+    --card: 225 30% 10%;            /* dark blue-gray cards */
     --card-foreground: 210 40% 98%;
-    --card-glow: 225 30% 12%;
+    --card-glow: 225 30% 15%;
 
     --popover: 222 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 45 93% 58%;
+    --primary: 45 93% 58%;          /* gold - matches existing */
     --primary-foreground: 222 84% 4.9%;
     --primary-glow: 45 100% 65%;
 
-    --secondary: 189 90% 58%;
+    --secondary: 189 90% 58%;       /* cyan - matches existing */
     --secondary-foreground: 222 84% 4.9%;
     --secondary-glow: 189 100% 65%;
 
@@ -43,12 +43,17 @@ All colors MUST be HSL.
     --radius: 0.75rem;
 
     /* Cinematic Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(222 84% 4.9%) 0%, hsl(250 60% 12%) 50%, hsl(270 70% 15%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(225 30% 8%) 0%, hsl(225 30% 10%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(45 93% 58%) 0%, hsl(189 90% 58%) 100%);
-    --gradient-primary: linear-gradient(90deg, hsl(45 93% 58%) 0%, hsl(45 100% 65%) 100%);
+  --gradient-hero: linear-gradient(135deg, hsl(222 84% 4.9%) 0%, hsl(225 30% 10%) 100%);
+  --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
+  --gradient-accent: linear-gradient(90deg, #3B82F6 0%, #06B6D4 100%);
+  --gradient-primary: linear-gradient(90deg, rgba(59,130,246,1) 0%, rgba(59,130,246,0.8) 100%);
+
+  /* Trend colors */
+  --trend-up: 16 68% 44%;    /* green (#10B981) */
+  --trend-down: 0 78% 61%;   /* red (#EF4444) */
+  --trend-stable: 220 7% 60%;/* gray (#6B7280) */
     
-    /* Shadows & Glows */
+  /* Shadows & Glows */
     --shadow-glow-primary: 0 0 40px hsl(45 93% 58% / 0.3);
     --shadow-glow-secondary: 0 0 40px hsl(189 90% 58% / 0.3);
     --shadow-card: 0 10px 30px -10px hsl(0 0% 0% / 0.5);
@@ -113,9 +118,20 @@ All colors MUST be HSL.
   }
 
   .card-elevated {
-    background: var(--gradient-card);
+    /* Dark elevated card by default */
+    background: linear-gradient(145deg, hsl(225 30% 10%) 0%, hsl(225 30% 12%) 100%);
+    color: hsl(var(--card-foreground));
     box-shadow: var(--shadow-elevated);
     border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  /* Card with dark background for dashboard panels (KPI, tables, charts) */
+  .card-white {
+    background: linear-gradient(145deg, hsl(225 30% 10%) 0%, hsl(225 30% 12%) 100%);
+    color: hsl(210 40% 98%);
+    border-radius: var(--radius);
+    box-shadow: 0 10px 30px -10px hsl(0 0% 0% / 0.5);
+    border: 1px solid hsl(217 32.6% 17.5% / 0.5);
   }
 
   .gradient-text {
@@ -173,14 +189,50 @@ All colors MUST be HSL.
   .hover-glow:hover {
     box-shadow: var(--shadow-glow-primary);
   }
-}
 
-@layer base {
-  * {
-    @apply border-border;
+  /* Dark theme selects and buttons */
+  select {
+    background-color: hsl(var(--card));
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
   }
 
-  body {
-    @apply bg-background text-foreground;
+  select:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--ring));
+  }
+
+  button.btn {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    font-weight: 500;
+    transition: background-color 0.3s ease;
+    cursor: pointer;
+  }
+
+  button.btn:hover {
+    background-color: hsl(var(--primary) / 0.9);
+  }
+
+  button.btn-secondary {
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    font-weight: 500;
+    transition: background-color 0.3s ease;
+    cursor: pointer;
+  }
+
+  button.btn-secondary:hover {
+    background-color: hsl(var(--secondary) / 0.9);
   }
 }
