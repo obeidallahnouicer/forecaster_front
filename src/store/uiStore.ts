@@ -115,21 +115,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({ theme: newTheme });
     // Persist to localStorage
     localStorage.setItem('theme', newTheme);
-    // Apply theme to document
-    const root = document.documentElement;
-    if (newTheme === 'dark') {
-      root.classList.add('dark');
-    } else if (newTheme === 'light') {
-      root.classList.remove('dark');
-    } else {
-      // System theme - check OS preference
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (isDark) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    }
+    // ThemeProvider will apply the visual changes (data-theme attribute)
   },
 
   // Chat

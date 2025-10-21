@@ -106,15 +106,6 @@ export interface KPIMetric {
   icon?: string;
 }
 
-export interface AnomalyAlert {
-  id: string;
-  severity: "critical" | "warning" | "info";
-  title: string;
-  description: string;
-  affected_items: string[];
-  timestamp: Date;
-  action?: string;
-}
 
 // Chatbot / AI Assistant
 export interface ChatMessage {

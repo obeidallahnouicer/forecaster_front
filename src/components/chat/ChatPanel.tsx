@@ -6,15 +6,38 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiClient } from "@/infrastructure/apiClient";
 import { toast } from "@/hooks/use-toast";
 
-type ChatMessage = { role: "user" | "assistant"; text: string; time?: string; isCode?: boolean };
+// UI Chat message shape
+type UIChatMessage = { role: "user" | "assistant"; text: string; time?: string; isCode?: boolean };
+
+// Domain ChatMessage (from src/domain/types) may have different shape (id, content, timestamp)
+type DomainChatMessage = {
+  id?: string;
+  role: "user" | "assistant";
+  content?: string;
+  timestamp?: string | Date;
+};
 
 type Props = {
   initialThread?: string;
+  messages?: UIChatMessage[] | DomainChatMessage[];
+  onSendMessage?: (content: string) => Promise<void>;
+  isLoading?: boolean;
+  showSuggestions?: boolean;
+  suggestedQuestions?: string[];
+  className?: string;
 };
 
-export const ChatPanel: React.FC<Props> = ({ initialThread = "default" }) => {
+export const ChatPanel: React.FC<Props> = ({
+  initialThread = "default",
+  messages: externalMessages,
+  onSendMessage,
+  isLoading: externalLoading = false,
+  showSuggestions = false,
+  suggestedQuestions = [],
+  className = "",
+}) => {
   const [threadId] = React.useState(initialThread);
-  const [messages, setMessages] = React.useState<ChatMessage[]>(() => [
+  const [internalMessages, setInternalMessages] = React.useState<UIChatMessage[]>(() => [
     { role: "assistant", text: "Welcome 👋 — ask me anything about your dataset or forecasts.", time: "now" },
     { role: "assistant", text: "Tip: Try 'What are top 3 trends?' or paste a code snippet to see formatting.", time: "now" },
   ]);
@@ -36,26 +59,37 @@ export const ChatPanel: React.FC<Props> = ({ initialThread = "default" }) => {
 
   React.useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [externalMessages, internalMessages]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
     const text = input.trim();
-    setMessages((m) => [...m, { role: "user", text, time: new Date().toLocaleTimeString() }]);
-    setInput("");
+  const msg: UIChatMessage = { role: "user", text, time: new Date().toLocaleTimeString() };
 
-    // Optimistic UI: show typing indicator
+    // Controlled mode: delegate sending to parent
+    if (externalMessages && onSendMessage) {
+      try {
+        await onSendMessage(text);
+      } catch (err) {
+        toast({ title: "Chat error", description: String(err as any), variant: "destructive" });
+      }
+      setInput("");
+      return;
+    }
+
+    // Uncontrolled: update local state and call backend
+    setInternalMessages((m) => [...m, msg]);
+    setInput("");
     setIsTyping(true);
     setLoading(true);
 
     try {
-      const res = await apiClient.chatMessage(text, threadId);
-      const answer = String(res?.answer ?? res?.result ?? res ?? "(no response)");
-      // if code block detection (simple heuristic)
+      const res = await apiClient.sendChatMessage(threadId, text);
+      const answer = String(res?.response ?? res?.message ?? res ?? "(no response)");
       const isCode = /```|\n\s{2,}|<table|\t/.test(answer);
-      setMessages((m) => [...m, { role: "assistant", text: answer, time: new Date().toLocaleTimeString(), isCode }]);
+      setInternalMessages((m) => [...m, { role: "assistant", text: answer, time: new Date().toLocaleTimeString(), isCode }]);
     } catch (err: any) {
-      setMessages((m) => [...m, { role: "assistant", text: `Error: ${err?.message ?? String(err)}`, time: new Date().toLocaleTimeString() }]);
+      setInternalMessages((m) => [...m, { role: "assistant", text: `Error: ${err?.message ?? String(err)}`, time: new Date().toLocaleTimeString() }]);
       toast({ title: "Chat error", description: String(err?.message ?? err), variant: "destructive" });
     } finally {
       setIsTyping(false);
@@ -68,7 +102,7 @@ export const ChatPanel: React.FC<Props> = ({ initialThread = "default" }) => {
   };
 
   const handleAttach = (file: File) => {
-    setMessages((m) => [...m, { role: "user", text: `Uploaded file: ${file.name} (${Math.round(file.size / 1024)} KB)`, time: new Date().toLocaleTimeString() }]);
+    setInternalMessages((m) => [...m, { role: "user", text: `Uploaded file: ${file.name} (${Math.round(file.size / 1024)} KB)`, time: new Date().toLocaleTimeString() }]);
     // Optionally upload file - omitted here, show toast
     toast({ title: "Attachment", description: `Simulated upload: ${file.name}` });
   };
@@ -85,21 +119,37 @@ export const ChatPanel: React.FC<Props> = ({ initialThread = "default" }) => {
 
       <div ref={containerRef} className="flex-1 overflow-auto p-3 sm:p-4 space-y-3 bg-background/20">
         <AnimatePresence initial={false} mode="popLayout">
-          {messages.map((m, i) => (
-            <motion.div key={i} layout>
-              <MessageBubble role={m.role} text={m.text} time={m.time} isCode={m.isCode} onCopy={handleCopy} />
-            </motion.div>
-          ))}
+          {(externalMessages ?? internalMessages).map((m, i) => {
+            // Map domain message shape to UI shape when necessary
+            const uiMessage: UIChatMessage = (m as any).text
+              ? (m as UIChatMessage)
+              : {
+                  role: (m as DomainChatMessage).role,
+                  text: String((m as DomainChatMessage).content ?? ""),
+                  time:
+                    typeof (m as DomainChatMessage).timestamp === "string"
+                      ? (m as DomainChatMessage).timestamp as string
+                      : (m as DomainChatMessage).timestamp
+                      ? new Date((m as DomainChatMessage).timestamp as any).toLocaleTimeString()
+                      : undefined,
+                };
+
+            return (
+              <motion.div key={i} layout>
+                <MessageBubble role={uiMessage.role} text={uiMessage.text} time={uiMessage.time} isCode={uiMessage.isCode} onCopy={handleCopy} />
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
 
-        {isTyping && (
+        {(externalLoading || isTyping) && (
           <div className="mt-1">
             <TypingIndicator />
           </div>
         )}
       </div>
 
-      <ChatInput value={input} onChange={setInput} onSend={handleSend} disabled={loading} onAttach={handleAttach} />
+      <ChatInput value={input} onChange={setInput} onSend={handleSend} disabled={loading || externalLoading} onAttach={handleAttach} />
     </div>
   );
 };

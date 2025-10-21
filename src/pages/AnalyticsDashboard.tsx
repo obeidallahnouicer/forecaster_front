@@ -104,7 +104,6 @@ export const AnalyticsDashboard: React.FC = () => {
       };
     });
     
-    console.log('[Dashboard] Top 10 Products data:', formatted);
     return formatted;
   }, [metrics?.top_articles]);
 
@@ -145,8 +144,6 @@ export const AnalyticsDashboard: React.FC = () => {
   // Debug logging for data flow
   useEffect(() => {
     if (metrics?.top_articles) {
-      console.log("[Dashboard] Top Products Data:", metrics.top_articles);
-      console.log("[Dashboard] Formatted Top Products Data:", topProductsData);
     }
   }, [metrics?.top_articles, topProductsData]);
 

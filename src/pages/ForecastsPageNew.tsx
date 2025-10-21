@@ -1,14 +1,14 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui";
+import { Button } from "@/components/ui";
+import { Badge } from "@/components/ui";
+import { Input } from "@/components/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
+import { Separator } from "@/components/ui";
+import { ScrollArea } from "@/components/ui";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui";
 import { 
   Upload, 
   Play, 
@@ -34,13 +34,11 @@ import {
   List,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { APIClient } from "@/infrastructure/apiClient";
+import { apiClient } from "@/infrastructure/apiClient";
 import { useUIStore } from "@/store/uiStore";
-import { FileUploader } from "@/components/FileUploader";
-import { ForecastSettings } from "@/components/ForecastSettings";
-import ForecastArticleCard from "@/components/ForecastArticleCard";
-import ForecastDetailPanel from "@/components/ForecastDetailPanel";
-import ForecastMetricsDashboard from "@/components/ForecastMetricsDashboard";
+import { FileUploader } from "@/components";
+import { ForecastSettings } from "@/components/forecast";
+import { ForecastArticleCard, ForecastDetailPanel, ForecastMetricsDashboard } from "@/components/forecast";
 import { cn } from "@/lib/utils";
 
 interface ForecastArticle {
@@ -108,7 +106,6 @@ const ForecastsPage: React.FC = () => {
   
   const { toast } = useToast();
   const { settings, sessionFrequency, setSessionFrequency } = useUIStore();
-  const apiClient = new APIClient();
 
   // Extract unique families and brands for filters
   const uniqueFamilies = useMemo(() => {
@@ -162,12 +159,6 @@ const ForecastsPage: React.FC = () => {
     // Get the LATEST frequency from the store at the moment of upload
     const uploadFrequency = useUIStore.getState().sessionFrequency;
 
-    console.log(`🔄 [UPLOAD] ========================================`);
-    console.log(`🔄 [UPLOAD] Starting upload`);
-    console.log(`📊 [UPLOAD] File: ${file.name}`);
-    console.log(`📊 [UPLOAD] Size: ${(file.size / 1024).toFixed(2)} KB`);
-    console.log(`🎯 [UPLOAD] Frequency (from store): ${uploadFrequency.toUpperCase()}`);
-    console.log(`🔄 [UPLOAD] ========================================`);
 
     try {
       const response = await apiClient.uploadDataset(file, uploadFrequency);
@@ -176,10 +167,6 @@ const ForecastsPage: React.FC = () => {
         setSessionId(response.session_id);
         setUploadStatus("success");
         
-        console.log(`✅ [UPLOAD] SUCCESS!`);
-        console.log(`✅ [UPLOAD] Session ID: ${response.session_id}`);
-        console.log(`✅ [UPLOAD] Frequency: ${uploadFrequency.toUpperCase()}`);
-        console.log(`✅ [UPLOAD] Rows processed: ${response.rows || 0}`);
         
         toast({
           title: "Upload successful!",
@@ -224,18 +211,10 @@ const ForecastsPage: React.FC = () => {
     setForecastResults([]);
     setSummaryData(null);
 
-    console.log(`[ForecastsPage] Running forecast with settings:`, {
-      sessionId,
-      frequency: sessionFrequency,
-      period: settings.period,
-      alpha: settings.alpha,
-      fastMode: settings.fastMode,
-      methods: settings.includeMethods,
-    });
+    // Running forecast with settings (sensitive info omitted from logs)
 
     try {
       // Run forecast with correct endpoint based on frequency
-      console.log(`[ForecastsPage] Calling ${sessionFrequency} forecast endpoint`);
       
       const result = sessionFrequency === "monthly"
         ? await apiClient.forecastMonthlyAll(
@@ -255,7 +234,6 @@ const ForecastsPage: React.FC = () => {
             settings.includeMethods.join(",")
           );
 
-      console.log("[ForecastsPage] Raw forecast result:", result);
 
       // Extract forecasts from result
       let forecasts: ForecastArticle[] = [];
@@ -272,7 +250,6 @@ const ForecastsPage: React.FC = () => {
 
       const count = result.count || forecasts.length;
       
-      console.log(`[ForecastsPage] Processed ${forecasts.length} forecast results out of ${count} total`);
       
       setForecastResults(forecasts);
       setTotalForecastCount(count);
@@ -317,7 +294,6 @@ const ForecastsPage: React.FC = () => {
       
       // Use different endpoint based on frequency
       if (sessionFrequency === 'monthly') {
-        console.log('[ForecastsPage] Fetching MONTHLY summary');
         summary = await apiClient.getMonthlySummary(sessionId);
         
         // Transform monthly summary to match expected format
@@ -339,7 +315,6 @@ const ForecastsPage: React.FC = () => {
         
         setSummaryData(processedSummary);
       } else {
-        console.log('[ForecastsPage] Fetching YEARLY summary');
         summary = await apiClient.getSummary(sessionId, false);
         
         // Process summary data
@@ -533,7 +508,6 @@ const ForecastsPage: React.FC = () => {
                         )}
                         onClick={() => {
                           setSessionFrequency("yearly");
-                          console.log("[ForecastsPage] Frequency changed to: yearly");
                           toast({
                             title: "Frequency set to Yearly",
                             description: "Your dataset will be processed with yearly frequency when uploaded.",
@@ -561,7 +535,6 @@ const ForecastsPage: React.FC = () => {
                         )}
                         onClick={() => {
                           setSessionFrequency("monthly");
-                          console.log("[ForecastsPage] Frequency changed to: monthly");
                           toast({
                             title: "Frequency set to Monthly",
                             description: "Your dataset will be processed with monthly frequency when uploaded.",

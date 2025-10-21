@@ -1,7 +1,7 @@
 import React from "react";
 import { useSidebar } from "@/components/ui";
 import { X } from "lucide-react";
-import { ChatPanel } from "./chat";
+import { ChatPanel } from "@/components/chat";
 
 export const ChatSidebar: React.FC = () => {
   const { open, setOpen, isMobile, openMobile, setOpenMobile } = useSidebar();

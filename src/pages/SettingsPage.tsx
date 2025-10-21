@@ -92,25 +92,8 @@ const SettingsPage: React.FC = () => {
       // Update theme if changed
       const themeChanged = settings.theme !== theme;
       if (themeChanged) {
+        // Update store — ThemeProvider listens to store and applies the correct data-theme/localStorage
         setTheme(settings.theme);
-        // Apply theme to document
-        const root = document.documentElement;
-        if (settings.theme === 'dark') {
-          root.classList.add('dark');
-          localStorage.setItem('theme', 'dark');
-        } else if (settings.theme === 'light') {
-          root.classList.remove('dark');
-          localStorage.setItem('theme', 'light');
-        } else {
-          // System theme
-          const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          if (isDark) {
-            root.classList.add('dark');
-          } else {
-            root.classList.remove('dark');
-          }
-          localStorage.setItem('theme', 'system');
-        }
       }
 
       // Update UI store with new settings

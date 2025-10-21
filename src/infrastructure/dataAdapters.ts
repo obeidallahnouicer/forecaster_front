@@ -3,7 +3,7 @@
  * Provides resilient normalization of backend responses
  */
 
-import { KPIMetric, AnomalyAlert, ChatMessage, ChatSession } from "@/domain/types";
+import { KPIMetric, ChatMessage, ChatSession } from "@/domain/types";
 
 /**
  * Normalize KPI data from various API response formats
@@ -35,34 +35,6 @@ export function normalizeKPIs(data: any): KPIMetric[] {
     .filter((item): item is KPIMetric => item !== null);
 }
 
-/**
- * Normalize anomaly alerts from API
- */
-export function normalizeAnomalies(data: any): AnomalyAlert[] {
-  if (!data || !Array.isArray(data)) {
-    console.warn("Invalid anomalies data format:", data);
-    return [];
-  }
-
-  return data
-    .map((item: any) => {
-      try {
-        return {
-          id: item.id || `anomaly-${Math.random()}`,
-          severity: item.severity || "warning",
-          title: item.title || item.name || "Alert",
-          description: item.description || item.message || "",
-          affected_items: item.affected_items || item.items || [],
-          timestamp: item.timestamp ? new Date(item.timestamp) : new Date(),
-          action: item.action || item.actionLabel || undefined,
-        } as AnomalyAlert;
-      } catch (err) {
-        console.warn("Failed to normalize anomaly:", item, err);
-        return null;
-      }
-    })
-    .filter((item): item is AnomalyAlert => item !== null);
-}
 
 /**
  * Normalize chat message from API

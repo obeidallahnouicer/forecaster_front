@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ChatPanel } from "@/components/ChatPanel";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { Button } from "@/components/ui";
+import { ChatPanel } from "@/components/chat";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { APIClient } from "@/infrastructure/apiClient";
+import { apiClient } from "@/infrastructure/apiClient";
 import { normalizeChatSession, normalizeChatMessage } from "@/infrastructure/dataAdapters";
 import { useToast } from "@/hooks/use-toast";
-import { ErrorState, EmptyState } from "@/components/ErrorStates";
-import { SkeletonCard } from "@/components/LoadingStates";
+import { ErrorState, EmptyState } from "@/components";
+import { SkeletonCard } from "@/components";
 import { Plus, Clock, MessageSquare, Loader2, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { ChatSession } from "@/domain/types";
@@ -17,7 +17,6 @@ const ChatPage: React.FC = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const { toast } = useToast();
-  const apiClient = new APIClient();
 
   // Fetch chat sessions directly from backend API
   const sessionsData = useAsyncData(

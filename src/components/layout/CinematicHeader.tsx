@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { TrendingUp, Settings as SettingsIcon, BarChart2, LineChart, MessageCircle } from "lucide-react";
-// SidebarTrigger removed — sidebar toggle button intentionally deleted
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import ThemeToggle from '@/theme/ThemeToggle';
 import { Link, useLocation } from "react-router-dom";
 
 export const CinematicHeader = () => {
@@ -24,7 +25,7 @@ export const CinematicHeader = () => {
       >
         {/* subtle full-width overlay — lower opacity, no shimmer */}
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5 opacity-30 pointer-events-none" />
-      
+    
         <div className="relative z-10 mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between gap-4">
             <motion.div
@@ -79,6 +80,11 @@ export const CinematicHeader = () => {
                 <SettingsIcon className="w-5 h-5" />
               </Link>
 
+              {/* Theme toggle */}
+              <ThemeToggle />
+
+              {/* Sidebar trigger */}
+              <SidebarTrigger />
             </div>
           </div>
         </div>
@@ -86,3 +92,5 @@ export const CinematicHeader = () => {
     </>
   );
 };
+
+export default CinematicHeader;
