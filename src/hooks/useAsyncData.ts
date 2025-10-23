@@ -29,6 +29,7 @@ export const useAsyncData = <T,>(
   options: UseAsyncDataOptions = {}
 ): AsyncDataState<T> & { retry: () => void } => {
   const {
+    // timeout: <= 0 means "no timeout" (wait indefinitely)
     timeout = 30000,
     retries = 3,
     retryDelay = 1000,
@@ -49,16 +50,20 @@ export const useAsyncData = <T,>(
     setStatus("loading");
     setError(null);
 
-    // Create timeout promise
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Request timeout")),
-        timeout
-      )
-    );
-
     try {
-      const result = await Promise.race([fetchFn(), timeoutPromise]);
+      let result: any;
+
+      if (timeout > 0) {
+        // Create timeout promise only when timeout is enabled
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Request timeout")), timeout)
+        );
+
+        result = await Promise.race([fetchFn(), timeoutPromise]);
+      } else {
+        // No timeout: await the fetch directly
+        result = await fetchFn();
+      }
 
       if (isMountedRef.current) {
         setData(result);
@@ -160,14 +165,15 @@ export const useAsyncDataMultiple = <T extends Record<string, any>>(
     await Promise.all(
       Object.entries(fetchFns).map(async ([key, fetchFn]) => {
         try {
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Request timeout")),
-              options.timeout || 30000
-            )
-          );
-
-          const result = await Promise.race([fetchFn(), timeoutPromise]);
+          let result: any;
+          if ((options.timeout ?? 30000) > 0) {
+            const timeoutPromise = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Request timeout")), options.timeout || 30000)
+            );
+            result = await Promise.race([fetchFn(), timeoutPromise]);
+          } else {
+            result = await fetchFn();
+          }
           results[key] = result;
           newStatuses[key] = "success";
           newErrors[key] = null;
@@ -229,17 +235,15 @@ export const useAsyncDataPaginated = <T,>(
       setError(null);
 
       try {
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Request timeout")),
-            options.timeout || 30000
-          )
-        );
-
-        const result = await Promise.race([
-          fetchFn(pageNum, pageSize),
-          timeoutPromise,
-        ]);
+        let result: any;
+        if ((options.timeout ?? 30000) > 0) {
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Request timeout")), options.timeout || 30000)
+          );
+          result = await Promise.race([fetchFn(pageNum, pageSize), timeoutPromise]);
+        } else {
+          result = await fetchFn(pageNum, pageSize);
+        }
 
         // Handle various response formats from backend
         let items: T[] = [];
