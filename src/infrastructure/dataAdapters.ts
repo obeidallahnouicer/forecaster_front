@@ -65,7 +65,7 @@ export function normalizeChatMessage(data: any): ChatMessage | null {
       content = JSON.stringify(data);
     }
 
-    return {
+    const msg: ChatMessage = {
       id: data.id || data.thread_id || `msg-${Date.now()}`,
       role: role as "user" | "assistant",
       content: String(content),
@@ -77,6 +77,13 @@ export function normalizeChatMessage(data: any): ChatMessage | null {
       } : undefined,
       quick_actions: data.quick_actions || [],
     };
+
+    // Preserve raw payload so UI can access structured fields like sql/rows_preview
+    if (typeof data === 'object' && (data.sql || data.rows_preview || data.rows || data.raw)) {
+      (msg as any).raw = data.raw ?? data;
+    }
+
+    return msg;
   } catch (err) {
     console.warn("Failed to normalize chat message:", data, err);
     return null;

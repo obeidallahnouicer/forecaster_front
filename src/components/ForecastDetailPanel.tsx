@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { TrendingUp, TrendingDown, Minus, BarChart3, Calendar, Package, Tag } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend, Bar, ComposedChart } from "recharts";
+import { uiColors } from '@/theme/theme';
 import { cn } from "@/lib/utils";
 
 interface ForecastDetailPanelProps {
@@ -231,19 +232,19 @@ const ForecastDetailPanel: React.FC<ForecastDetailPanelProps> = ({ forecast }) =
               <Bar 
                 dataKey="value" 
                 name={forecast.frequency === "monthly" ? "Monthly Sales" : "Yearly Sales"}
-                fill="#3b82f6"
+                fill={uiColors.primary}
                 radius={[4, 4, 0, 0]}
               />
               <Line 
                 type="monotone" 
                 dataKey="value" 
                 name="Trend"
-                stroke={isUptrend ? "#22c55e" : isDowntrend ? "#ef4444" : "#eab308"}
+                stroke={isUptrend ? uiColors.trendUp : isDowntrend ? uiColors.trendDown : uiColors.trendStable}
                 strokeWidth={2}
                 dot={(props: any) => {
                   const { payload, cx, cy, stroke } = props;
                   if (payload.isForecast) {
-                    return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={6} fill="#f59e0b" stroke="#fff" strokeWidth={2} />;
+                    return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={6} fill="hsl(var(--accent))" stroke="#fff" strokeWidth={2} />;
                   }
                   return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={3} fill={stroke} />;
                 }}

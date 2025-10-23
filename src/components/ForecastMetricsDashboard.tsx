@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TrendingUp, TrendingDown, Package, BarChart3, PieChart, Target, AlertCircle } from "lucide-react";
 import { Bar, BarChart, Cell, Pie, PieChart as RPieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
+import { uiColors } from '@/theme/theme';
 
 interface MetricsDashboardProps {
   summary: {
@@ -31,12 +32,12 @@ interface MetricsDashboardProps {
 }
 
 const COLORS = {
-  uptrend: "#22c55e",
-  downtrend: "#ef4444",
-  stable: "#eab308",
-  primary: "#3b82f6",
-  secondary: "#8b5cf6",
-  tertiary: "#ec4899",
+  uptrend: uiColors.trendUp,
+  downtrend: uiColors.trendDown,
+  stable: uiColors.trendStable,
+  primary: uiColors.primary,
+  secondary: '#8b5cf6',
+  tertiary: '#ec4899',
 };
 
 const ForecastMetricsDashboard: React.FC<MetricsDashboardProps> = ({ summary, frequency }) => {
@@ -169,7 +170,7 @@ const ForecastMetricsDashboard: React.FC<MetricsDashboardProps> = ({ summary, fr
                     labelLine={false}
                     label={(entry) => `${entry.name}: ${entry.value}`}
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill={uiColors.primary}
                     dataKey="value"
                     isAnimationActive={false}
                   >

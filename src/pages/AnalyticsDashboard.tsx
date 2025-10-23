@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, BarChar
 import { getMetrics, getDocuments } from "@/infrastructure/forecastApi";
 import KPI from "@/components/KPI";
 import DocumentsTable from "@/components/DocumentsTable";
+import { uiColors } from "@/theme/theme";
 
 // --- Types ---
 type StatusResponse = { csv_exists?: boolean; csv_path?: string; total_rows?: number; columns?: string[] };
@@ -43,7 +44,8 @@ const UP = "Uptrend";
 const DOWN = "Downtrend";
 const STABLE = "Stable";
 
-const COLORS = { Uptrend: "#10B981", Downtrend: "#EF4444", Stable: "#6B7280" };
+// Centralized colors mapping for trend labels (keeps charts consistent across themes)
+const COLORS = { Uptrend: uiColors.trendUp, Downtrend: uiColors.trendDown, Stable: uiColors.trendStable };
 
 export const AnalyticsDashboard: React.FC = () => {
   const [status, setStatus] = useState<StatusResponse | null>(null);
@@ -198,11 +200,11 @@ export const AnalyticsDashboard: React.FC = () => {
                   margin={{ left: 0, right: 0, top: 5, bottom: 5 }}
                   key={`chart-${topProductsData.length}`}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={true} vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.6)" horizontal={true} vertical={false} />
                   <XAxis 
                     type="number" 
-                    stroke="#6B7280" 
-                    tick={{ fill: '#D1D5DB', fontSize: 11 }} 
+                    stroke="hsl(var(--muted) / 1)" 
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} 
                     tickFormatter={(v) => {
                       if (v >= 1000000) return (v / 1000000).toFixed(0) + 'M';
                       if (v >= 1000) return (v / 1000).toFixed(0) + 'K';
@@ -221,11 +223,11 @@ export const AnalyticsDashboard: React.FC = () => {
                     }}
                   />
                   <ReTooltip 
-                    contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '4px' }}
-                    labelStyle={{ color: '#F3F4F6' }}
+                    contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border) / 0.8)', borderRadius: '4px' }}
+                    labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
                     formatter={(value: any) => [new Intl.NumberFormat().format(Math.round(Number(value))), 'Forecast Value']} 
                   />
-                  <Bar dataKey="avg_forecast" barSize={22} radius={[0, 4, 4, 0]} isAnimationActive={false} fill="#3B82F6">
+                  <Bar dataKey="avg_forecast" barSize={22} radius={[0, 4, 4, 0]} isAnimationActive={false} fill={uiColors.primary}>
                     {topProductsData.map((row: MetricArticle, idx: number) => (
                       <Cell key={`cell-${idx}`} fill={COLORS[row.trend_label ?? STABLE] || "#60A5FA"} />
                     ))}
@@ -244,12 +246,12 @@ export const AnalyticsDashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <ReTooltip 
-                  contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '4px' }}
-                  labelStyle={{ color: '#F3F4F6' }}
+                  contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border) / 0.8)', borderRadius: '4px' }}
+                  labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
                 />
                 <Pie data={trendData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                   {trendData.map((entry: { name: string; value: number }) => (
-                    <Cell key={entry.name} fill={COLORS[entry.name] || "#CBD5E1"} />
+                    <Cell key={entry.name} fill={COLORS[entry.name] || 'hsl(var(--muted) / 1)'} />
                   ))}
                 </Pie>
               </PieChart>
@@ -290,15 +292,15 @@ export const AnalyticsDashboard: React.FC = () => {
             {marquesData && marquesData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={marquesData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={true} vertical={false} />
-                  <XAxis dataKey="marque" stroke="#6B7280" tick={{ fill: '#D1D5DB', fontSize: 11 }} />
-                  <YAxis stroke="#6B7280" tick={{ fill: '#D1D5DB', fontSize: 11 }} domain={[0, (dataMax: number) => Math.max(1, dataMax)]} tickFormatter={(v) => new Intl.NumberFormat().format(Number(v))} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.6)" horizontal={true} vertical={false} />
+                  <XAxis dataKey="marque" stroke="hsl(var(--muted) / 1)" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                  <YAxis stroke="hsl(var(--muted) / 1)" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} domain={[0, (dataMax: number) => Math.max(1, dataMax)]} tickFormatter={(v) => new Intl.NumberFormat().format(Number(v))} />
                   <ReTooltip 
-                    contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '4px' }}
-                    labelStyle={{ color: '#F3F4F6' }}
+                    contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border) / 0.8)', borderRadius: '4px' }}
+                    labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
                     formatter={(value: any) => new Intl.NumberFormat().format(Number(value))} 
                   />
-                  <Bar dataKey="value" fill="#3B82F6">
+                  <Bar dataKey="value" fill={uiColors.primary}>
                     {marquesData.map((row: any) => (
                       <Cell key={row.marque} fill={COLORS[row.trend_label ?? STABLE] || "#60A5FA"} />
                     ))}
@@ -317,15 +319,15 @@ export const AnalyticsDashboard: React.FC = () => {
             {famillesData && famillesData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={famillesData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={true} vertical={false} />
-                  <XAxis dataKey="famille" stroke="#6B7280" tick={{ fill: '#D1D5DB', fontSize: 11 }} />
-                  <YAxis stroke="#6B7280" tick={{ fill: '#D1D5DB', fontSize: 11 }} domain={[0, (dataMax: number) => Math.max(1, dataMax)]} tickFormatter={(v) => new Intl.NumberFormat().format(Number(v))} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.6)" horizontal={true} vertical={false} />
+                  <XAxis dataKey="famille" stroke="hsl(var(--muted) / 1)" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                  <YAxis stroke="hsl(var(--muted) / 1)" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} domain={[0, (dataMax: number) => Math.max(1, dataMax)]} tickFormatter={(v) => new Intl.NumberFormat().format(Number(v))} />
                   <ReTooltip 
-                    contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '4px' }}
-                    labelStyle={{ color: '#F3F4F6' }}
+                    contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border) / 0.8)', borderRadius: '4px' }}
+                    labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
                     formatter={(value: any) => new Intl.NumberFormat().format(Number(value))} 
                   />
-                  <Bar dataKey="value" fill="#3B82F6">
+                  <Bar dataKey="value" fill={uiColors.primary}>
                     {famillesData.map((row: any) => (
                       <Cell key={row.famille} fill={COLORS[row.trend_label ?? STABLE] || "#60A5FA"} />
                     ))}

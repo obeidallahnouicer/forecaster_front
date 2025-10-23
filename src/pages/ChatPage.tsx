@@ -43,7 +43,8 @@ const ChatPage: React.FC = () => {
     }, []),
     [],
     {
-      timeout: 15000,
+      // Disable timeout for chat sessions - wait as long as needed
+      timeout: 0,
       retries: 2,
       onError: (err) => {
         console.error("Sessions fetch error:", err);
@@ -272,8 +273,8 @@ const ChatPage: React.FC = () => {
           transition={{ duration: 0.4, delay: 0.2 }}
           className="mt-12"
         >
-          <h2 className="text-lg font-semibold mb-4">AI Assistant Features</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* <h2 className="text-lg font-semibold mb-4">AI Assistant Features</h2> */}
+          {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               {
                 icon: "🔍",
@@ -304,7 +305,7 @@ const ChatPage: React.FC = () => {
                 </CardContent>
               </Card>
             ))}
-          </div>
+          </div> */}
         </motion.div>
       </div>
     </div>

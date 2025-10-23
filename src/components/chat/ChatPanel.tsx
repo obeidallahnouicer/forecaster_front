@@ -84,10 +84,22 @@ export const ChatPanel: React.FC<Props> = ({
     setLoading(true);
 
     try {
-      const res = await apiClient.sendChatMessage(threadId, text);
-      const answer = String(res?.response ?? res?.message ?? res ?? "(no response)");
+  const res = await apiClient.sendChatMessage(threadId, text);
+  // normalized response: { response, message, raw }
+  const answer = String(res?.response ?? res?.message ?? res ?? "(no response)");
       const isCode = /```|\n\s{2,}|<table|\t/.test(answer);
-      setInternalMessages((m) => [...m, { role: "assistant", text: answer, time: new Date().toLocaleTimeString(), isCode }]);
+
+      // If backend returned richer metadata, append a short metadata line
+  const raw = res?.raw ?? (typeof res === 'object' ? res : undefined);
+      const parts: string[] = [answer];
+      if (raw.source) parts.push(`\n\n[Source: ${raw.source}]`);
+      if (raw.confidence !== undefined && raw.confidence !== null) parts.push(` [Confidence: ${Number(raw.confidence).toFixed(2)}]`);
+
+  // Include raw payload on the message object so MessageBubble can render SQLCard when present
+  const assistantMsg: any = { role: "assistant", text: parts.join(""), time: new Date().toLocaleTimeString(), isCode };
+  if (raw) assistantMsg.raw = raw;
+
+  setInternalMessages((m) => [...m, assistantMsg]);
     } catch (err: any) {
       setInternalMessages((m) => [...m, { role: "assistant", text: `Error: ${err?.message ?? String(err)}`, time: new Date().toLocaleTimeString() }]);
       toast({ title: "Chat error", description: String(err?.message ?? err), variant: "destructive" });
@@ -134,9 +146,13 @@ export const ChatPanel: React.FC<Props> = ({
                       : undefined,
                 };
 
+            // If domain message had raw SQL metadata stringified in content, try to pass it via raw prop
+            const domainMsg = m as DomainChatMessage;
+            const rawPayload = (domainMsg as any).raw ?? undefined;
+
             return (
               <motion.div key={i} layout>
-                <MessageBubble role={uiMessage.role} text={uiMessage.text} time={uiMessage.time} isCode={uiMessage.isCode} onCopy={handleCopy} />
+                <MessageBubble role={uiMessage.role} text={uiMessage.text} time={uiMessage.time} isCode={uiMessage.isCode} onCopy={handleCopy} raw={rawPayload} />
               </motion.div>
             );
           })}

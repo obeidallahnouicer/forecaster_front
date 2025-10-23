@@ -29,6 +29,38 @@ export interface HealthResponse {
   status: string;
 }
 
+// ===== SQL CHAT TYPES =====
+export interface SQLChatResponse {
+  success: boolean;
+  sql?: string;
+  insights?: string[];
+  recommendations?: string[];
+  rows_preview?: Record<string, any>[];
+  rowcount?: number;
+  execution_time_ms?: number;
+  validation_status?: string; // could be a structured object, backend returns string or object
+  error?: string;
+}
+
+export interface SQLChatHealth {
+  llm: string;
+  pipeline: string[];
+  validators: string[];
+  tables: Record<string, { columns: string[]; sample_count?: number }>;
+}
+
+export interface SQLChatSchema {
+  tables: Record<string, { columns: string[]; sample_count?: number }>;
+}
+
+export interface SQLChatValidationInfo {
+  stages: Array<{
+    name: string;
+    status: string;
+    detail?: string;
+  }>;
+}
+
 export class APIClient {
   private client: any;
   private baseURL: string;
@@ -64,18 +96,86 @@ export class APIClient {
     );
   }
 
+  // Basic client-side PII sanitizer.
+  // Note: backend will still run its PII validators. This is just a helpful pre-filter
+  // to remove obvious secrets before sending over the network. Do NOT rely on this
+  // for security — backend validation is authoritative.
+  private sanitizeQuestion(input: string): { sanitized: string; removed: string[] } {
+    const removed: string[] = [];
+    if (!input || typeof input !== "string") return { sanitized: "", removed };
+
+    let s = input;
+
+    // simple email removal
+    s = s.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, (m) => {
+      removed.push(`email:${m}`);
+      return "[REDACTED_EMAIL]";
+    });
+
+    // basic credit card patterns (very permissive)
+    s = s.replace(/\b(?:\d[ -]*?){13,19}\b/g, (m) => {
+      removed.push(`card:${m}`);
+      return "[REDACTED_CARD]";
+    });
+
+    // SSN-like (US) patterns
+    s = s.replace(/\b\d{3}-\d{2}-\d{4}\b/g, (m) => {
+      removed.push(`ssn:${m}`);
+      return "[REDACTED_SSN]";
+    });
+
+    // simple API key-ish tokens (high-entropy hex/base64)
+    s = s.replace(/\b(?:[A-Za-z0-9_\-]{32,})\b/g, (m) => {
+      // avoid removing normal words by checking for long alphanumeric
+      if (m.length >= 32) {
+        removed.push(`token:${m.slice(0, 8)}...`);
+        return "[REDACTED_TOKEN]";
+      }
+      return m;
+    });
+
+    // phone numbers (very permissive)
+    s = s.replace(/\+?\d{1,3}[ -.]?\(?\d{1,4}\)?[ -.]?\d{1,4}[ -.]?\d{1,9}/g, (m) => {
+      // avoid catching small numbers/dates by basic length check
+      if (m.replace(/\D/g, "").length >= 7) {
+        removed.push(`phone:${m}`);
+        return "[REDACTED_PHONE]";
+      }
+      return m;
+    });
+
+    return { sanitized: s, removed };
+  }
+
   // ===== CHAT ENDPOINTS (RAG Chatbot) =====
 
+  // New business chat endpoint. The backend now exposes /business-chat which
+  // accepts { query, session_id } and returns a rich BusinessChatResponse.
+  // For backwards compatibility with components that expect a simple
+  // `response` or `message` string, we normalize the returned payload and
+  // include the raw backend data under `raw`.
   async sendChatMessage(threadId: string, message: string): Promise<any> {
-    const resp = await this.client.post("/chat", {
-      message,
-      thread_id: threadId,
+  const resp = await this.client.post("/api/sql-chat", {
+      question: message,
+      session_id: threadId,
     });
-    return resp.data;
+
+    const data = resp.data || {};
+
+    // Normalize to previous ChatResponse shape used by UI components
+    const normalized: any = {
+      thread_id: threadId,
+      // prefer `answer`, then `response`, then `message` or fallback to full data
+      response: data.answer ?? data.response ?? data.message ?? (typeof data === 'string' ? data : undefined),
+      message: data.answer ?? data.response ?? data.message ?? (typeof data === 'string' ? data : undefined),
+      raw: data,
+    };
+
+    return normalized;
   }
 
   async resetChatSession(threadId: string): Promise<any> {
-    const resp = await this.client.post("/reset", {
+    const resp = await this.client.post("/api/reset", {
       thread_id: threadId,
     });
     return resp.data;
@@ -282,6 +382,110 @@ export class APIClient {
 
   async healthCheck(): Promise<HealthResponse> {
     const resp = await this.client.get("/health");
+    return resp.data;
+  }
+
+  // ===== SQL CHAT ENDPOINTS =====
+
+  // Post a natural language question to the SQL Chat backend.
+  // The backend performs PII input validation, SQL generation, SQL validation and safe execution.
+  // The frontend must sanitize input, enforce length limits, and handle the structured response.
+  async sqlChat(question: string, session_id?: string): Promise<SQLChatResponse> {
+    if (!question || question.trim().length < 3) {
+      throw new Error("Question must be at least 3 characters long.");
+    }
+    if (question.length > 1000) {
+      throw new Error("Question exceeds maximum length of 1000 characters.");
+    }
+
+    const { sanitized, removed } = this.sanitizeQuestion(question);
+
+    const payload: any = { question: sanitized };
+    if (session_id) payload.session_id = session_id;
+    if (removed.length) payload._client_redactions = removed; // non-sensitive telemetry only
+
+    try {
+  const resp = await this.client.post("/api/sql-chat", payload);
+      const data = resp.data;
+
+      // If backend indicates failure, surface a friendly message.
+      if (!data) {
+        return { success: false, error: "No response from SQL Chat service." };
+      }
+
+      if (!data.success) {
+        // Keep messages user-friendly; do not expose raw errors.
+        return {
+          success: false,
+          error: data.error || `The query could not be processed. Validation status: ${data.validation_status || "unknown"}`,
+          validation_status: data.validation_status,
+        };
+      }
+
+      // Success: return structured response as-is. Frontend UI will render read-only SQL, previews etc.
+      return data;
+    } catch (err: any) {
+      // Network or server error - map to friendly message
+      const message = err?.response?.data?.detail || err?.message || "Network error communicating with SQL Chat service.";
+      return { success: false, error: message };
+    }
+  }
+
+  /**
+   * Execute a raw SQL query via the SQL Chat backend execution endpoint.
+   * NOTE: This forwards SQL to the backend which must enforce validation and safety.
+   * The frontend enforces light input checks and an optional `limit` to protect
+   * against large scans. Use only when you need to run a specific SQL query.
+   *
+   * Returns the same shape as `SQLChatResponse` returned by the backend.
+   *
+   * Example: apiClient.executeSQL("SELECT * FROM t_stock WHERE Stock_à_terme < 0", 10)
+   */
+  async executeSQL(sql: string, limit: number = 10, session_id?: string): Promise<SQLChatResponse> {
+    if (!sql || typeof sql !== "string") {
+      throw new Error("SQL must be a non-empty string.");
+    }
+
+    if (limit <= 0 || limit > 10000) {
+      throw new Error("`limit` must be between 1 and 10000.");
+    }
+
+    // Append a limit clause if not already present and the SQL looks like a SELECT.
+    let finalSql = sql.trim();
+    const isSelect = /^select\s+/i.test(finalSql);
+    if (isSelect) {
+      // naive check for existing LIMIT - if present, do not append
+      if (!/\blimit\b/i.test(finalSql)) {
+        finalSql = `${finalSql} LIMIT ${limit}`;
+      }
+    }
+
+    const payload: any = { sql: finalSql };
+    if (session_id) payload.session_id = session_id;
+
+    try {
+      const resp = await this.client.post(`/api/sql-chat/execute`, payload);
+      const data = resp.data;
+      if (!data) return { success: false, error: "No response from SQL execution service." };
+      return data as SQLChatResponse;
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || err?.message || "Network error executing SQL.";
+      return { success: false, error: message };
+    }
+  }
+
+  async sqlChatHealth(): Promise<SQLChatHealth> {
+    const resp = await this.client.get("/api/sql-chat/health");
+    return resp.data;
+  }
+
+  async sqlChatSchema(): Promise<SQLChatSchema> {
+    const resp = await this.client.get("/api/sql-chat/schema");
+    return resp.data;
+  }
+
+  async sqlChatValidationInfo(): Promise<SQLChatValidationInfo> {
+    const resp = await this.client.get("/api/sql-chat/validation-info");
     return resp.data;
   }
 

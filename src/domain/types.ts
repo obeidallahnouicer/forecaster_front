@@ -119,6 +119,8 @@ export interface ChatMessage {
     related_forecasts?: string[];
   };
   quick_actions?: QuickAction[];
+  // raw backend payload (optional) - preserves fields like `sql`, `rows_preview`, `insights`
+  raw?: any;
 }
 
 export interface QuickAction {

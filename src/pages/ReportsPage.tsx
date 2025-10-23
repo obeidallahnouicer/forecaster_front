@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid } from "recharts";
 import { useUIStore } from "@/store/uiStore";
+import { uiColors } from '@/theme/theme';
 import Spinner from "@/components/ui/shadcn-io/spinner";
 
 export const ReportsPage = () => {
@@ -23,9 +24,9 @@ export const ReportsPage = () => {
   });
 
   const trendData = [
-    { name: "Growth", value: counts.Growth, color: "hsl(var(--primary))" },
-    { name: "Stable", value: counts.Stable, color: "hsl(var(--muted))" },
-    { name: "Decline", value: counts.Decline, color: "hsl(var(--destructive))" },
+    { name: "Growth", value: counts.Growth, color: uiColors.trendUp },
+    { name: "Stable", value: counts.Stable, color: 'hsl(var(--muted))' },
+    { name: "Decline", value: counts.Decline, color: uiColors.trendDown },
   ];
 
   return (
@@ -62,7 +63,7 @@ export const ReportsPage = () => {
                 labelLine={false}
                 label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                 outerRadius={140}
-                fill="#8884d8"
+                fill={uiColors.primary}
                 dataKey="value"
               >
                 {trendData.map((entry, index) => (

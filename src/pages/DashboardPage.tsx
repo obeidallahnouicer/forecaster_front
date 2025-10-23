@@ -52,6 +52,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { uiColors } from '@/theme/theme';
 
 const DashboardPage: React.FC = () => {
   const { toast } = useToast();
@@ -291,9 +292,9 @@ const DashboardPage: React.FC = () => {
     if (!metricsData.data?.trend_counts) return [];
     const tc = metricsData.data.trend_counts;
     return [
-      { name: "Uptrend", value: tc.Uptrend || 0, fill: "#10b981" },
-      { name: "Downtrend", value: tc.Downtrend || 0, fill: "#ef4444" },
-      { name: "Stable", value: tc.Stable || 0, fill: "#6366f1" },
+        { name: "Uptrend", value: tc.Uptrend || 0, fill: '#10B981' },
+        { name: "Downtrend", value: tc.Downtrend || 0, fill: '#EF4444' },
+        { name: "Stable", value: tc.Stable || 0, fill: '#6B7280' },
     ];
   }, [metricsData.data]);
 
@@ -792,7 +793,7 @@ const DashboardPage: React.FC = () => {
                       }}
                       formatter={(value) => `€${value}K`}
                     />
-                    <Bar dataKey="forecast" fill="#10b981" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="forecast" fill={uiColors.trendUp} radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -838,7 +839,7 @@ const DashboardPage: React.FC = () => {
                       }}
                       formatter={(value) => `€${value}K`}
                     />
-                    <Bar dataKey="forecast" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="forecast" fill={uiColors.accent} radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

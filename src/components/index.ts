@@ -10,3 +10,4 @@ export { KPICard } from "./kpi/KPICard";
 
 export { Skeleton, SkeletonCard, SkeletonChart, SkeletonTable, ShimmerLoader, SpinnerLoader } from "./ui/LoadingStates";
 export { ErrorState, EmptyState, TimeoutState, ValidationError } from "./ui/ErrorStates";
+export { default as SQLCard } from "./ui/SQLCard";
