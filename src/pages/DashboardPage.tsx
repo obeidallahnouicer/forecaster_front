@@ -72,6 +72,7 @@ const DashboardPage: React.FC = () => {
   const [timeRange, setTimeRange] = useState<"yearly" | "monthly">("yearly");
   const [topN, setTopN] = useState("5");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [openMetrics, setOpenMetrics] = useState<Record<string, boolean>>({});
 
   // ============ Data Fetching ============
   const metricsData = useAsyncData(
@@ -102,42 +103,55 @@ const DashboardPage: React.FC = () => {
 
   // ============ Advanced KPI Calculations ============
   const advancedKPIs = useMemo(() => {
-    if (!metricsData.data) {
-      return {
-        mae: 0,
-        rmse: 0,
-        mape: 0,
-        r2: 0.5,
-        totalForecast: 0,
-        stability: 0,
-        confidence: 50,
-        errorRate: 50,
-      };
+    // Prefer backend-provided per-method summary metrics when available (e.g., xgb_metrics).
+    // Fallback to the previous heuristic calculations if no method metrics are present.
+    const empty = {
+      mae: 0,
+      rmse: 0,
+      mape: 0,
+      r2: 0.5,
+      totalForecast: 0,
+      stability: 0,
+      confidence: 50,
+      errorRate: 50,
+    };
+    if (!metricsData.data) return empty;
+
+    const m: any = metricsData.data;
+    // Look for preferred method metric (xgb first, then others)
+    const preferredMethods = ["xgb", "es", "prophet", "arima", "lr", "sma"];
+    let primaryMetrics: any = null;
+    for (const mm of preferredMethods) {
+      const candidate = m[`${mm}_metrics`];
+      if (candidate && (candidate.MAE !== null || candidate.RMSE !== null || candidate.MAPE !== null || candidate.R2 !== null)) {
+        primaryMetrics = candidate;
+        break;
+      }
     }
 
-    const m = metricsData.data;
+    // Basic fallbacks if backend metrics not present
     const totalForecast = m.total_avg_forecast || 0;
     const total = m.total_rows || 1;
 
-    // Calculate real metrics from actual data
-    // MAE = Mean Absolute Error (from forecast variance)
+    if (primaryMetrics) {
+      const mae = primaryMetrics.MAE ?? 0;
+      const rmse = primaryMetrics.RMSE ?? (mae ? mae * 1.25 : 0);
+      const mape = primaryMetrics.MAPE ?? Math.max(0, Math.min(100, 5));
+      const r2 = primaryMetrics.R2 ?? Math.min(0.95, Math.max(0, 0.5));
+      const stability = ((m.trend_counts?.Stable || 0) / Math.max(total, 1)) * 100;
+      const confidence = Math.max(0, Math.min(100, (1 - (m.trend_counts?.Downtrend || 0) / Math.max(total, 1)) * 100));
+      const errorRate = Math.max(0, Math.min(100, ((m.trend_counts?.Downtrend || 0) / Math.max(total, 1)) * 100));
+      return { mae, rmse, mape, r2, totalForecast, stability, confidence, errorRate };
+    }
+
+    // No primary method metrics found: fallback to heuristic
     const mae = totalForecast > 0 ? Math.abs(totalForecast * 0.04) : 0;
-    
-    // RMSE = Root Mean Squared Error (typically 1.2-1.5x MAE)
     const rmse = mae * 1.25;
-    
-    // MAPE = Mean Absolute Percentage Error (%)
     const trendBalance = Math.abs((m.trend_counts?.Uptrend || 0) - (m.trend_counts?.Downtrend || 0)) / Math.max(total, 1);
     const mape = Math.max(0, Math.min(100, 5 + (trendBalance * 15)));
-    
-    // R² = Coefficient of determination (0-1)
     const stability = ((m.trend_counts?.Stable || 0) / Math.max(total, 1)) * 100;
     const r2 = Math.min(0.95, Math.max(0, 0.5 + (stability / 100) * 0.45));
-    
-    // Confidence = inverse of downtrend percentage
     const confidence = Math.max(0, Math.min(100, (1 - (m.trend_counts?.Downtrend || 0) / Math.max(total, 1)) * 100));
-    
-    // Error Rate = percentage of volatile (downtrend) products
     const errorRate = Math.max(0, Math.min(100, ((m.trend_counts?.Downtrend || 0) / Math.max(total, 1)) * 100));
 
     return { mae, rmse, mape, r2, totalForecast, stability, confidence, errorRate };
@@ -292,9 +306,9 @@ const DashboardPage: React.FC = () => {
     if (!metricsData.data?.trend_counts) return [];
     const tc = metricsData.data.trend_counts;
     return [
-        { name: "Uptrend", value: tc.Uptrend || 0, fill: '#10B981' },
-        { name: "Downtrend", value: tc.Downtrend || 0, fill: '#EF4444' },
-        { name: "Stable", value: tc.Stable || 0, fill: '#6B7280' },
+      { name: "Uptrend", value: tc.Uptrend || 0, fill: uiColors.trendUp },
+      { name: "Downtrend", value: tc.Downtrend || 0, fill: uiColors.trendDown },
+      { name: "Stable", value: tc.Stable || 0, fill: uiColors.trendStable },
     ];
   }, [metricsData.data]);
 
@@ -394,6 +408,26 @@ const DashboardPage: React.FC = () => {
 
   const hasActiveFilters =
     filters.marque || filters.famille || filters.trend_label || tableSearch;
+
+  // Methods and format helpers for displaying per-method metrics
+  const methodList = ["xgb", "sma", "es", "lr", "arima", "prophet"]; 
+  const methodLabels: Record<string, string> = {
+    xgb: "XGBoost",
+    sma: "SMA",
+    es: "Exp. Smooth",
+    lr: "Linear Reg",
+    arima: "ARIMA",
+    prophet: "Prophet",
+  };
+
+  const formatNum = (v?: number | null, digits = 0) =>
+    v === null || v === undefined ? "—" : Number(v).toFixed(digits);
+
+  const formatPct = (v?: number | null) =>
+    v === null || v === undefined ? "—" : `${v.toFixed(1)}%`;
+
+  const toggleMetrics = (ref: string) =>
+    setOpenMetrics((prev) => ({ ...prev, [ref]: !prev[ref] }));
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-background/80">
@@ -556,6 +590,23 @@ const DashboardPage: React.FC = () => {
                 </Card>
               </motion.div>
             ))}
+          </div>
+
+          {/* Per-method summary cards */}
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {methodList.map((m) => {
+              const key = `${m}_metrics`;
+              const metrics = (metricsData.data as any)?.[`${m}_metrics`];
+              return (
+                <Card key={m} className="border-border/30">
+                  <CardContent className="py-3 px-3">
+                    <p className="text-xs font-medium opacity-80">{methodLabels[m]}</p>
+                    <p className="text-sm font-bold mt-1">RMSE {metrics ? formatNum(metrics.RMSE) : "—"}</p>
+                    <p className="text-xs text-muted-foreground mt-1">MAE {metrics ? formatNum(metrics.MAE) : "—"} · MAPE {metrics ? formatPct(metrics.MAPE) : "—"}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </motion.div>
 
@@ -1059,33 +1110,64 @@ const DashboardPage: React.FC = () => {
                               )}
                             </div>
                           </th>
+                          <th className="text-left py-3 px-4 font-semibold text-xs">Metrics</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/20">
-                        {paginatedData.map((product: any, idx) => (
-                          <motion.tr
-                            key={product.ref_article}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.2, delay: idx * 0.05 }}
-                            className="hover:bg-muted/40 transition-colors"
-                          >
-                            <td className="py-3 px-4">
-                              <Badge variant="secondary" className="text-xs">
-                                {(currentPage - 1) * itemsPerPage + idx + 1}
-                              </Badge>
-                            </td>
-                            <td className="py-3 px-4 font-medium text-sm truncate">
-                              {product.designation}
-                            </td>
-                            <td className="py-3 px-4 text-xs text-muted-foreground">
-                              {product.ref_article}
-                            </td>
-                            <td className="py-3 px-4 font-bold text-primary">
-                              €{(product.avg_forecast / 1000).toFixed(1)}K
-                            </td>
-                          </motion.tr>
-                        ))}
+                        {paginatedData.map((product: any, idx) => {
+                          return (
+                            <React.Fragment key={product.ref_article}>
+                              <motion.tr
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.2, delay: idx * 0.05 }}
+                                className="hover:bg-muted/40 transition-colors"
+                              >
+                                <td className="py-3 px-4">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {(currentPage - 1) * itemsPerPage + idx + 1}
+                                  </Badge>
+                                </td>
+                                <td className="py-3 px-4 font-medium text-sm truncate">
+                                  {product.designation}
+                                </td>
+                                <td className="py-3 px-4 text-xs text-muted-foreground">
+                                  {product.ref_article}
+                                </td>
+                                <td className="py-3 px-4 font-bold text-primary">
+                                  €{(product.avg_forecast / 1000).toFixed(1)}K
+                                </td>
+                                <td className="py-3 px-4 text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <Button size="sm" variant="outline" onClick={() => toggleMetrics(product.ref_article)}>
+                                      Metrics
+                                    </Button>
+                                    <div className="text-muted-foreground text-xs">{product.xgb_metrics?.RMSE ? `XGB RMSE ${formatNum(product.xgb_metrics?.RMSE)}` : "—"}</div>
+                                  </div>
+                                </td>
+                              </motion.tr>
+                              {openMetrics[product.ref_article] && (
+                                <tr className="bg-muted/5">
+                                  <td colSpan={6} className="py-2 px-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                      {methodList.map((m) => {
+                                        const mKey = `${m}_metrics`;
+                                        const val = product[mKey];
+                                        return (
+                                          <div key={m} className="p-2 border rounded bg-white/5">
+                                            <p className="text-xs font-medium">{methodLabels[m]}</p>
+                                            <p className="text-sm font-bold">RMSE {formatNum(val?.RMSE)}</p>
+                                            <p className="text-xs text-muted-foreground">MAE {formatNum(val?.MAE)} · MAPE {formatPct(val?.MAPE)}</p>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

@@ -215,7 +215,7 @@ export const AnalyticsDashboard: React.FC = () => {
                     dataKey="designation"
                     type="category"
                     width={240}
-                    tick={{ fill: '#F3F4F6', fontSize: 11 }}
+                    tick={{ fill: 'hsl(var(--popover-foreground))', fontSize: 11 }}
                     interval={0}
                     tickFormatter={(v: any) => {
                       const s = String(v ?? "");
@@ -229,7 +229,7 @@ export const AnalyticsDashboard: React.FC = () => {
                   />
                   <Bar dataKey="avg_forecast" barSize={22} radius={[0, 4, 4, 0]} isAnimationActive={false} fill={uiColors.primary}>
                     {topProductsData.map((row: MetricArticle, idx: number) => (
-                      <Cell key={`cell-${idx}`} fill={COLORS[row.trend_label ?? STABLE] || "#60A5FA"} />
+                      <Cell key={`cell-${idx}`} fill={COLORS[row.trend_label ?? STABLE] || uiColors.primarySoft} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -300,9 +300,9 @@ export const AnalyticsDashboard: React.FC = () => {
                     labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
                     formatter={(value: any) => new Intl.NumberFormat().format(Number(value))} 
                   />
-                  <Bar dataKey="value" fill={uiColors.primary}>
+                    <Bar dataKey="value" fill={uiColors.primary}>
                     {marquesData.map((row: any) => (
-                      <Cell key={row.marque} fill={COLORS[row.trend_label ?? STABLE] || "#60A5FA"} />
+                      <Cell key={row.marque} fill={COLORS[row.trend_label ?? STABLE] || uiColors.primarySoft} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -329,7 +329,7 @@ export const AnalyticsDashboard: React.FC = () => {
                   />
                   <Bar dataKey="value" fill={uiColors.primary}>
                     {famillesData.map((row: any) => (
-                      <Cell key={row.famille} fill={COLORS[row.trend_label ?? STABLE] || "#60A5FA"} />
+                      <Cell key={row.famille} fill={COLORS[row.trend_label ?? STABLE] || uiColors.primarySoft} />
                     ))}
                   </Bar>
                 </BarChart>

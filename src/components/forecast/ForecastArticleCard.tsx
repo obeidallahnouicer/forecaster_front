@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus, ArrowUpRight, ArrowDownRight, BarChart3 } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
+import { uiColors } from '@/theme/theme';
 
 interface ForecastArticleCardProps {
   article: {
@@ -139,7 +140,7 @@ const ForecastArticleCard: React.FC<ForecastArticleCardProps> = ({ article, onCl
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke={isUptrend ? "#22c55e" : isDowntrend ? "#ef4444" : "#eab308"}
+                  stroke={isUptrend ? uiColors.trendUp : isDowntrend ? uiColors.trendDown : uiColors.trendStable}
                   strokeWidth={2}
                   dot={false}
                   animationDuration={300}
