@@ -18,7 +18,7 @@ const App = () => (
         <CinematicHeader />
         <main className="flex-1 pt-20 sm:pt-24">
           <Routes>
-            <Route path={ROUTES.HOME} element={<Index />} />
+            <Route path={ROUTES.HOME} element={<DashboardPage />} />
             <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
             <Route path={ROUTES.FORECASTS} element={<ForecastsPage />} />
             <Route path={ROUTES.CHAT} element={<ChatPage />} />
