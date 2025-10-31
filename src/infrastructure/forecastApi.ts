@@ -13,7 +13,7 @@ export async function getMetrics(filters: MetricsFilters = {}) {
   Object.entries(filters).forEach(([k, v]) => {
     if (v !== undefined && v !== null && String(v) !== "") params.append(k, String(v));
   });
-  const res = await fetch(`${BASE}/metrics?${params.toString()}`);
+  const res = await fetch(`${BASE}/dashboard/metrics?${params.toString()}`);
   if (!res.ok) throw new Error(`Metrics fetch failed: ${res.status}`);
   return res.json();
 }
@@ -30,7 +30,7 @@ export async function getDocuments(params: DocumentsParams = {}) {
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && String(v) !== "") p.append(k, String(v));
   });
-  const res = await fetch(`${BASE}/documents?${p.toString()}`);
+  const res = await fetch(`${BASE}/dashboard/documents?${p.toString()}`);
   if (!res.ok) throw new Error(`Documents fetch failed: ${res.status}`);
   return res.json();
 }
