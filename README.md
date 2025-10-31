@@ -440,5 +440,27 @@ Where to look in the code
 - Upload UI: `src/components/FileUploader.tsx`
 - Global UI state: `src/store/uiStore.ts`
 
+## Docker (development / production)
+
+This repository includes a Dockerfile and a `docker-compose.yml` to run the frontend in a container.
+
+- The Dockerfile is a multi-stage build: it builds the app with Node and serves the `dist/` folder with nginx.
+- `docker-compose.yml` builds the image and maps port 3000 on the host to port 80 in the container (so open http://localhost:3000).
+
+Important: any environment variables you would normally put in a `.env` file (for example `VITE_API_URL`) are mirrored in `docker-compose.yml` under `environment:` so the container has the same runtime configuration. A default `.env` with `VITE_API_URL` is also included in the repo root.
+
+Quick run (Docker Desktop on Windows / Docker Engine):
+
+1. Build & start:
+
+```powershell
+docker compose up --build
+```
+
+2. Open the app at http://localhost:3000
+
+Notes:
+- The nginx config (`nginx.conf`) proxies `/api/` to `http://host.docker.internal:8000/api/` by default so a backend running on the host (port 8000) is reachable from the container. If you run your API as another container, update `docker-compose.yml` and `nginx.conf` to proxy to that service instead.
+
 ---
 
