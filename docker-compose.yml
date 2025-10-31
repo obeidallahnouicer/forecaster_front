@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: forecaster_frontend:latest
+    ports:
+      - "3000:80"
+    environment:
+      VITE_API_URL: "http://host.docker.internal:8000/api"
+    restart: unless-stopped
