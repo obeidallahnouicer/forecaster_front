@@ -188,7 +188,7 @@ export class APIClient {
     formData.append("file", file);
     formData.append("frequency", frequency);
 
-    const resp = await this.client.post("/upload", formData, {
+    const resp = await this.client.post("/forecasts/upload", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
@@ -199,12 +199,12 @@ export class APIClient {
   // ===== SESSION MANAGEMENT =====
 
   async listSessions(): Promise<any> {
-    const resp = await this.client.get("/sessions");
+    const resp = await this.client.get("/forecasts/sessions");
     return resp.data;
   }
 
   async deleteSession(sessionId: string): Promise<any> {
-    const resp = await this.client.delete(`/sessions/${sessionId}`);
+    const resp = await this.client.delete(`/forecasts/sessions/${sessionId}`);
     return resp.data;
   }
 
@@ -254,7 +254,7 @@ export class APIClient {
     formData.append("fast_mode", fastMode.toString());
     if (includeMethods) formData.append("include_methods", includeMethods);
 
-    const resp = await this.client.post(`/forecast/all/${sessionId}`, formData, {
+    const resp = await this.client.post(`/forecasts/forecast/all/${sessionId}`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
@@ -370,7 +370,7 @@ export class APIClient {
     formData.append("fast_mode", fastMode.toString());
     if (includeMethods) formData.append("include_methods", includeMethods);
 
-    const resp = await this.client.post(`/monthly/forecast/all/${sessionId}`, formData, {
+    const resp = await this.client.post(`/monthly/forecasts/${sessionId}`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
@@ -549,7 +549,7 @@ export class APIClient {
 
   async createChatSession(title?: string): Promise<any> {
     try {
-      const resp = await this.client.post("/sessions", {
+      const resp = await this.client.post("/forecasts/sessions", {
         title: title || "New Conversation",
       });
       return resp.data;
