@@ -147,15 +147,65 @@ Primary endpoints (expected)
 	- Response: { jobId, totalItems }
 
 - GET /api/forecast/article?articleId=XXX
-	- Purpose: Retrieve a single-article forecast, historical series, and model comparisons.
+	- Purpose: Retrieve a single-article forecast with dual forecasting (sales + quantities), historical series, and model comparisons.
 	- Response: {
 			articleId,
-			historical: [{ date, value }],
-			forecasts: [{ model: string, series: [{ date, value }], metrics: { mae, rmse, trendPct } }]
+			historical_sales: [{ date, value }],
+			historical_quantities: [{ date, value }],
+			sales_avg_forecast, qty_avg_forecast,
+			sales_sma_forecast, qty_sma_forecast, (... other methods)
+			sales_trend_pct, qty_trend_pct,
+			sales_sma_metrics, qty_sma_metrics, (... other methods)
+			frequency: "yearly" | "monthly",
+			next_period: "2025"
+		}
+
+- GET /api/dashboard/status?frequency=yearly
+	- Purpose: Check if forecast summary exists and get basic info
+	- Response: { 
+			summary_exists: true,
+			total_rows: 1234,
+			columns: [...],
+			frequency: "yearly",
+			data_source: "forecaster_response"
+		}
+
+- GET /api/dashboard/documents?frequency=yearly&limit=100&offset=0
+	- Purpose: Get paginated list of forecasted articles with dual forecasts
+	- Filters: marque, famille, next_period, sales_min, sales_max, qty_min, qty_max, sort_by, sort_order
+	- Response: {
+			data: [{
+				ref, designation, marque, famille,
+				sales_avg_forecast, qty_avg_forecast,
+				sales_trend_pct, qty_trend_pct,
+				next_period, frequency,
+				... (other forecast methods)
+			}],
+			total: 1234,
+			filtered: 100,
+			limit: 100,
+			offset: 0,
+			data_source: "forecaster_response"
+		}
+
+- GET /api/dashboard/metrics?frequency=yearly&top_n=10
+	- Purpose: Get aggregated metrics and top articles by sales/quantities
+	- Response: {
+			total_rows: 1234,
+			sales_avg_forecast: 12345.67,
+			qty_avg_forecast: 234.56,
+			top_articles_by_sales: [{...}],
+			top_articles_by_qty: [{...}],
+			top_marques_by_sales: [{marque, total_sales, avg_sales, count}],
+			top_marques_by_qty: [{marque, total_qty, avg_qty, count}],
+			top_familles_by_sales: [{famille, total_sales, avg_sales, count}],
+			top_familles_by_qty: [{famille, total_qty, avg_qty, count}],
+			frequency: "yearly",
+			data_source: "forecaster_response"
 		}
 
 - GET /api/summary
-	- Purpose: High-level summary of forecasts and metrics across the dataset.
+	- Purpose: High-level summary of forecasts and metrics across the dataset (legacy endpoint).
 	- Response: { totalArticles, distribution: {...}, topForecasts: [...] }
 
 - POST /api/cache/clear
@@ -165,8 +215,8 @@ Primary endpoints (expected)
 Additional diagnostic endpoints for the analytics dashboard
 
 - GET /api/status — Server status and health metrics
-- GET /api/metrics — Aggregated performance or forecasting metrics
-- GET /api/documents — List of documents/articles with metadata
+- GET /api/metrics — Aggregated performance or forecasting metrics (use /api/dashboard/metrics instead)
+- GET /api/documents — List of documents/articles with metadata (use /api/dashboard/documents instead)
 
 How to connect a backend
 
