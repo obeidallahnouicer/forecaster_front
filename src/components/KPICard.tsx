@@ -7,6 +7,8 @@ import {
   Target,
   AlertTriangle,
   Database,
+  Package,
+  BoxSelect,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -20,9 +22,12 @@ interface KPICardProps {
   delta?: number;
   deltaTrend?: "up" | "down" | "stable";
   comparison_period?: string;
-  icon?: "TrendingUp" | "TrendingDown" | "Activity" | "Target" | "AlertTriangle" | "Database";
+  icon?: "TrendingUp" | "TrendingDown" | "Activity" | "Target" | "AlertTriangle" | "Database" | "Package" | "BoxSelect";
   className?: string;
   isLoading?: boolean;
+  sublabel?: string;
+  format?: "number" | "currency" | "percent";
+  trend?: number;
 }
 
 const iconMap = {
@@ -32,6 +37,8 @@ const iconMap = {
   Target,
   AlertTriangle,
   Database,
+  Package,
+  BoxSelect,
 };
 
 export const KPICard: React.FC<KPICardProps> = ({
@@ -44,10 +51,39 @@ export const KPICard: React.FC<KPICardProps> = ({
   icon = "Activity",
   className,
   isLoading = false,
+  sublabel,
+  format = "number",
+  trend,
 }) => {
   const IconComponent = iconMap[icon] || Activity; // Fallback to Activity if icon not found
-  const isDeltaPositive = delta !== undefined && delta > 0;
-  const isDeltaNegative = delta !== undefined && delta < 0;
+  
+  // Use trend if provided, otherwise fall back to delta
+  const effectiveDelta = trend ?? delta;
+  const isDeltaPositive = effectiveDelta !== undefined && effectiveDelta > 0;
+  const isDeltaNegative = effectiveDelta !== undefined && effectiveDelta < 0;
+
+  // Format value based on format type
+  const formatValue = (val: string | number): string => {
+    const numVal = typeof val === 'string' ? parseFloat(val) : val;
+    
+    switch (format) {
+      case "currency":
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(numVal);
+      case "percent":
+        return `${numVal.toFixed(1)}%`;
+      default:
+        return numVal.toLocaleString();
+    }
+  };
+
+  const displayValue = typeof value === 'number' || !isNaN(Number(value)) 
+    ? formatValue(value) 
+    : value;
 
   if (isLoading) {
     return (
@@ -91,9 +127,14 @@ export const KPICard: React.FC<KPICardProps> = ({
 
         <CardHeader className="pb-3 relative z-10">
           <div className="flex items-start justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {label}
-            </CardTitle>
+            <div className="space-y-1">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {label}
+              </CardTitle>
+              {sublabel && (
+                <p className="text-xs text-muted-foreground/70">{sublabel}</p>
+              )}
+            </div>
             <div className="p-2 bg-primary/10 rounded-lg text-primary">
               <IconComponent className="w-4 h-4" />
             </div>
@@ -103,15 +144,15 @@ export const KPICard: React.FC<KPICardProps> = ({
         <CardContent className="relative z-10">
           <div className="space-y-2">
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold tracking-tight">{value}</span>
-              {unit && (
+              <span className="text-3xl font-bold tracking-tight">{displayValue}</span>
+              {unit && !format && (
                 <span className="text-sm text-muted-foreground font-medium">
                   {unit}
                 </span>
               )}
             </div>
 
-            {delta !== undefined && (
+            {effectiveDelta !== undefined && (
               <div className="flex items-center gap-1 text-xs font-medium">
                 <span
                   className={cn(
@@ -127,7 +168,7 @@ export const KPICard: React.FC<KPICardProps> = ({
                   {isDeltaNegative && <TrendingDown className="w-3 h-3" />}
                   <span>
                     {isDeltaNegative ? "" : "+"}
-                    {delta.toFixed(1)}%
+                    {effectiveDelta.toFixed(1)}%
                   </span>
                 </span>
                 {comparison_period && (
