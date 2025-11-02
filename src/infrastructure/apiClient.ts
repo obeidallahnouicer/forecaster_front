@@ -280,6 +280,70 @@ export class APIClient {
 
   // ===== DASHBOARD DATA ENDPOINTS =====
 
+  async getDashboardStatus(frequency: string = "yearly"): Promise<any> {
+    const resp = await this.client.get("/dashboard/status", {
+      params: { frequency },
+    });
+    return resp.data;
+  }
+
+  async getDashboardDocuments(
+    limit: number = 1000,
+    offset: number = 0,
+    frequency: string = "yearly",
+    filters?: {
+      marque?: string;
+      famille?: string;
+      next_period?: string;
+      sales_min?: number;
+      sales_max?: number;
+      qty_min?: number;
+      qty_max?: number;
+      sort_by?: string;
+      sort_order?: "asc" | "desc";
+    }
+  ): Promise<any> {
+    const params: any = {
+      limit,
+      offset,
+      frequency,
+    };
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          params[key] = value;
+        }
+      });
+    }
+
+    const resp = await this.client.get("/dashboard/documents", { params });
+    return resp.data;
+  }
+
+  async getDashboardMetrics(
+    frequency: string = "yearly",
+    filters?: {
+      marque?: string;
+      famille?: string;
+      next_period?: string;
+      top_n?: number;
+    }
+  ): Promise<any> {
+    const params: any = { frequency };
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          params[key] = value;
+        }
+      });
+    }
+
+    const resp = await this.client.get("/dashboard/metrics", { params });
+    return resp.data;
+  }
+
   async getDashboardData(
     limit: number = 1000,
     preview: boolean = false,
@@ -370,7 +434,7 @@ export class APIClient {
     formData.append("fast_mode", fastMode.toString());
     if (includeMethods) formData.append("include_methods", includeMethods);
 
-    const resp = await this.client.post(`/monthly/forecasts/${sessionId}`, formData, {
+    const resp = await this.client.post(`forecasts/monthly/forecast/all/${sessionId}`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
