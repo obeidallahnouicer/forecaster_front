@@ -34,16 +34,67 @@ export interface ForecastResult {
   designation: string;
   marque?: string;
   famille?: string;
+  
+  // Historical data
   historique: HistoricalDataPoint[];
+  historical_sales?: HistoricalDataPoint[];
+  historical_quantities?: HistoricalDataPoint[];
+  
+  // Forecast methods
   forecasts: ForecastMethod[];
   forecast_data: ForecastDataPoint[];
-  avgForecast: number;
-  trendPct: number;
+  
+  // Dual forecasting - Sales
+  sales_avg_forecast: number;
+  sales_sma_forecast?: number;
+  sales_ema_forecast?: number;
+  sales_linear_forecast?: number;
+  sales_arima_forecast?: number;
+  sales_prophet_forecast?: number;
+  sales_xgboost_forecast?: number;
+  
+  // Dual forecasting - Quantities
+  qty_avg_forecast: number;
+  qty_sma_forecast?: number;
+  qty_ema_forecast?: number;
+  qty_linear_forecast?: number;
+  qty_arima_forecast?: number;
+  qty_prophet_forecast?: number;
+  qty_xgboost_forecast?: number;
+  
+  // Sales metrics
+  sales_trend_pct: number;
+  sales_sma_metrics?: any;
+  sales_ema_metrics?: any;
+  sales_linear_metrics?: any;
+  sales_arima_metrics?: any;
+  sales_prophet_metrics?: any;
+  sales_xgboost_metrics?: any;
+  
+  // Quantity metrics
+  qty_trend_pct: number;
+  qty_sma_metrics?: any;
+  qty_ema_metrics?: any;
+  qty_linear_metrics?: any;
+  qty_arima_metrics?: any;
+  qty_prophet_metrics?: any;
+  qty_xgboost_metrics?: any;
+  
+  // Common fields
   dataPoints: number;
-  nextYear: number;
+  next_period: string;
+  frequency: "yearly" | "monthly";
   confidence_interval: number;
   model_accuracy?: number;
   last_updated?: Date;
+  
+  // Legacy fields (for backward compatibility)
+  /** @deprecated Use sales_avg_forecast instead */
+  avgForecast?: number;
+  /** @deprecated Use sales_trend_pct instead */
+  trendPct?: number;
+  /** @deprecated Use next_period instead */
+  nextYear?: number;
 }
 
 export interface SummaryRow {
@@ -51,11 +102,46 @@ export interface SummaryRow {
   designation: string;
   marque?: string;
   famille?: string;
-  avgForecast: number;
-  trendPct: number;
-  trendLabel: "Growth" | "Stable" | "Decline";
+  
+  // Sales forecasts
+  sales_avg_forecast: number;
+  sales_sma_forecast?: number;
+  sales_ema_forecast?: number;
+  sales_linear_forecast?: number;
+  sales_arima_forecast?: number;
+  sales_prophet_forecast?: number;
+  sales_xgboost_forecast?: number;
+  
+  // Quantity forecasts
+  qty_avg_forecast: number;
+  qty_sma_forecast?: number;
+  qty_ema_forecast?: number;
+  qty_linear_forecast?: number;
+  qty_arima_forecast?: number;
+  qty_prophet_forecast?: number;
+  qty_xgboost_forecast?: number;
+  
+  // Sales metrics
+  sales_trend_pct: number;
+  sales_trend_label?: "Growth" | "Stable" | "Decline";
+  
+  // Quantity metrics
+  qty_trend_pct: number;
+  qty_trend_label?: "Growth" | "Stable" | "Decline";
+  
+  // Common fields
+  next_period: string;
+  frequency: "yearly" | "monthly";
   confidence?: number;
   anomaly_score?: number;
+  
+  // Legacy fields (for backward compatibility)
+  /** @deprecated Use sales_avg_forecast instead */
+  avgForecast?: number;
+  /** @deprecated Use sales_trend_pct instead */
+  trendPct?: number;
+  /** @deprecated Use sales_trend_label instead */
+  trendLabel?: "Growth" | "Stable" | "Decline";
 }
 
 export interface Settings {
@@ -63,6 +149,76 @@ export interface Settings {
   alpha: number;
   fastMode: boolean;
   includeMethods: ForecastModel[];
+  frequency?: "yearly" | "monthly";
+}
+
+// Dashboard API response types
+export interface DashboardStatusResponse {
+  summary_exists: boolean;
+  total_rows: number;
+  columns: string[];
+  frequency: string;
+  data_source: string;
+}
+
+export interface DashboardDocumentsResponse {
+  data: SummaryRow[];
+  total: number;
+  filtered: number;
+  limit: number;
+  offset: number;
+  data_source: string;
+}
+
+export interface DashboardMetricsResponse {
+  total_rows: number;
+  
+  // Sales aggregates
+  sales_avg_forecast: number;
+  sales_sma_forecast?: number;
+  sales_ema_forecast?: number;
+  sales_linear_forecast?: number;
+  
+  // Quantity aggregates
+  qty_avg_forecast: number;
+  qty_sma_forecast?: number;
+  qty_ema_forecast?: number;
+  qty_linear_forecast?: number;
+  
+  // Top articles
+  top_articles_by_sales: SummaryRow[];
+  top_articles_by_qty: SummaryRow[];
+  
+  // Aggregations by marque
+  top_marques_by_sales?: Array<{
+    marque: string;
+    total_sales: number;
+    avg_sales: number;
+    count: number;
+  }>;
+  top_marques_by_qty?: Array<{
+    marque: string;
+    total_qty: number;
+    avg_qty: number;
+    count: number;
+  }>;
+  
+  // Aggregations by famille
+  top_familles_by_sales?: Array<{
+    famille: string;
+    total_sales: number;
+    avg_sales: number;
+    count: number;
+  }>;
+  top_familles_by_qty?: Array<{
+    famille: string;
+    total_qty: number;
+    avg_qty: number;
+    count: number;
+  }>;
+  
+  frequency: string;
+  data_source: string;
 }
 
 export type ForecastModel = "SMA" | "ExpSmoothing" | "LinearReg" | "ARIMA" | "PROPHET" | "XGBOOST";
