@@ -1,8 +1,16 @@
 import React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getSalesForecast, getSalesTrend } from "@/utils/forecastHelpers";
 
 interface ForecastTableProps {
-  items: Array<{ ref_article: string; designation: string; avg_forecast: number; trend_pct: number }>;
+  items: Array<{ 
+    ref_article: string; 
+    designation: string; 
+    avg_forecast?: number;
+    sales_avg_forecast?: number;
+    trend_pct?: number;
+    sales_trend_pct?: number;
+  }>;
   onRowClick?: (item: any) => void;
 }
 
@@ -18,14 +26,19 @@ export const ForecastTable: React.FC<ForecastTableProps> = ({ items, onRowClick 
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((it) => (
-          <TableRow key={it.ref_article} onClick={() => onRowClick && onRowClick(it)} className="cursor-pointer">
-            <TableCell className="font-mono text-xs">{it.ref_article}</TableCell>
-            <TableCell>{it.designation}</TableCell>
-            <TableCell>{it.avg_forecast?.toLocaleString()}</TableCell>
-            <TableCell>{it.trend_pct?.toFixed(1)}%</TableCell>
-          </TableRow>
-        ))}
+        {items.map((it) => {
+          const forecast = getSalesForecast(it);
+          const trend = getSalesTrend(it);
+          
+          return (
+            <TableRow key={it.ref_article} onClick={() => onRowClick && onRowClick(it)} className="cursor-pointer">
+              <TableCell className="font-mono text-xs">{it.ref_article}</TableCell>
+              <TableCell>{it.designation}</TableCell>
+              <TableCell>{forecast.toLocaleString()}</TableCell>
+              <TableCell>{trend.toFixed(1)}%</TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
