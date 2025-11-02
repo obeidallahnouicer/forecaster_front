@@ -47,24 +47,32 @@ interface ForecastDetailPanelProps {
     sales_sma_forecast?: number;
     sales_es_forecast?: number;
     sales_lr_forecast?: number;
+    sales_arima_forecast?: number;
+    sales_prophet_forecast?: number;
     sales_xgb_forecast?: number;
     
     // Quantity model forecasts
     qty_sma_forecast?: number;
     qty_es_forecast?: number;
     qty_lr_forecast?: number;
+    qty_arima_forecast?: number;
+    qty_prophet_forecast?: number;
     qty_xgb_forecast?: number;
     
     // Sales model metrics
     sales_sma_metrics?: ModelMetrics;
     sales_es_metrics?: ModelMetrics;
     sales_lr_metrics?: ModelMetrics;
+    sales_arima_metrics?: ModelMetrics;
+    sales_prophet_metrics?: ModelMetrics;
     sales_xgb_metrics?: ModelMetrics;
     
     // Quantity model metrics
     qty_sma_metrics?: ModelMetrics;
     qty_es_metrics?: ModelMetrics;
     qty_lr_metrics?: ModelMetrics;
+    qty_arima_metrics?: ModelMetrics;
+    qty_prophet_metrics?: ModelMetrics;
     qty_xgb_metrics?: ModelMetrics;
     
     // Legacy method-specific forecasts
@@ -147,6 +155,14 @@ const ForecastDetailPanel: React.FC<ForecastDetailPanelProps> = ({ forecast }) =
       forecast: forecast.sales_lr_forecast,
       metrics: forecast.sales_lr_metrics
     } : undefined,
+    arima: forecast.sales_arima_forecast && forecast.sales_arima_metrics ? {
+      forecast: forecast.sales_arima_forecast,
+      metrics: forecast.sales_arima_metrics
+    } : undefined,
+    prophet: forecast.sales_prophet_forecast && forecast.sales_prophet_metrics ? {
+      forecast: forecast.sales_prophet_forecast,
+      metrics: forecast.sales_prophet_metrics
+    } : undefined,
     xgb: forecast.sales_xgb_forecast && forecast.sales_xgb_metrics ? {
       forecast: forecast.sales_xgb_forecast,
       metrics: forecast.sales_xgb_metrics
@@ -167,6 +183,14 @@ const ForecastDetailPanel: React.FC<ForecastDetailPanelProps> = ({ forecast }) =
       forecast: forecast.qty_lr_forecast,
       metrics: forecast.qty_lr_metrics
     } : undefined,
+    arima: forecast.qty_arima_forecast && forecast.qty_arima_metrics ? {
+      forecast: forecast.qty_arima_forecast,
+      metrics: forecast.qty_arima_metrics
+    } : undefined,
+    prophet: forecast.qty_prophet_forecast && forecast.qty_prophet_metrics ? {
+      forecast: forecast.qty_prophet_forecast,
+      metrics: forecast.qty_prophet_metrics
+    } : undefined,
     xgb: forecast.qty_xgb_forecast && forecast.qty_xgb_metrics ? {
       forecast: forecast.qty_xgb_forecast,
       metrics: forecast.qty_xgb_metrics
@@ -175,15 +199,19 @@ const ForecastDetailPanel: React.FC<ForecastDetailPanelProps> = ({ forecast }) =
   
   // Prepare model forecasts for chart (optional scatter points)
   const modelForecasts = useMemo(() => {
-    if (!forecast.sales_sma_forecast && !forecast.sales_es_forecast) return undefined;
+    if (!forecast.sales_sma_forecast && !forecast.sales_es_forecast && !forecast.sales_lr_forecast) return undefined;
     return {
       sales_sma: forecast.sales_sma_forecast,
       sales_es: forecast.sales_es_forecast,
       sales_lr: forecast.sales_lr_forecast,
+      sales_arima: forecast.sales_arima_forecast,
+      sales_prophet: forecast.sales_prophet_forecast,
       sales_xgb: forecast.sales_xgb_forecast,
       qty_sma: forecast.qty_sma_forecast,
       qty_es: forecast.qty_es_forecast,
       qty_lr: forecast.qty_lr_forecast,
+      qty_arima: forecast.qty_arima_forecast,
+      qty_prophet: forecast.qty_prophet_forecast,
       qty_xgb: forecast.qty_xgb_forecast,
     };
   }, [forecast]);
