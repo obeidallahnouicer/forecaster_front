@@ -115,32 +115,130 @@ export function normalizeChatSession(data: any): ChatSession | null {
 }
 
 /**
- * Normalize forecast response from API
+ * Normalize forecast response from API with dual forecasting support
  */
 export function normalizeForecast(data: any): any {
   if (!data) return null;
 
   try {
+    // For backward compatibility, if old fields exist, map them to sales fields
+    const salesAvgForecast = data.sales_avg_forecast ?? data.avgForecast ?? data.avg_forecast ?? 0;
+    const salesTrendPct = data.sales_trend_pct ?? data.trendPct ?? data.trend_pct ?? data.trend ?? 0;
+    const nextPeriod = data.next_period ?? data.nextYear ?? data.next_year ?? (new Date().getFullYear() + 1);
+    
     return {
       id: data.id || `forecast-${data.ref || Math.random()}`,
       ref: data.ref || data.reference || "N/A",
       designation: data.designation || data.name || "Product",
       marque: data.marque || data.brand || undefined,
       famille: data.famille || data.family || undefined,
-      value: data.value || data.avgForecast || data.avg_forecast || 0,
-      confidence: data.confidence || data.confidence_level || 0.85,
-      trendPct: data.trendPct || data.trend_pct || data.trend || 0,
-      status: data.status || "Ready",
-      model: data.model || "Ensemble ML",
+      
+      // Dual forecasting - Sales
+      sales_avg_forecast: salesAvgForecast,
+      sales_sma_forecast: data.sales_sma_forecast,
+      sales_ema_forecast: data.sales_ema_forecast,
+      sales_linear_forecast: data.sales_linear_forecast,
+      sales_arima_forecast: data.sales_arima_forecast,
+      sales_prophet_forecast: data.sales_prophet_forecast,
+      sales_xgboost_forecast: data.sales_xgboost_forecast,
+      sales_trend_pct: salesTrendPct,
+      
+      // Dual forecasting - Quantities
+      qty_avg_forecast: data.qty_avg_forecast ?? 0,
+      qty_sma_forecast: data.qty_sma_forecast,
+      qty_ema_forecast: data.qty_ema_forecast,
+      qty_linear_forecast: data.qty_linear_forecast,
+      qty_arima_forecast: data.qty_arima_forecast,
+      qty_prophet_forecast: data.qty_prophet_forecast,
+      qty_xgboost_forecast: data.qty_xgboost_forecast,
+      qty_trend_pct: data.qty_trend_pct ?? 0,
+      
+      // Historical data
       historique: data.historique || data.historical || [],
+      historical_sales: data.historical_sales || data.historique || [],
+      historical_quantities: data.historical_quantities || [],
+      
+      // Forecast data
       forecast_data: data.forecast_data || data.forecasts || [],
-      avgForecast: data.avgForecast || data.avg_forecast || data.value || 0,
+      
+      // Common fields
+      next_period: String(nextPeriod),
+      frequency: data.frequency || "yearly",
+      confidence: data.confidence || data.confidence_level || 0.85,
       confidence_interval: data.confidence_interval || 95,
       model_accuracy: data.model_accuracy || data.accuracy || 85,
       last_updated: data.last_updated ? new Date(data.last_updated) : new Date(),
+      
+      // Legacy compatibility
+      value: salesAvgForecast,
+      avgForecast: salesAvgForecast,
+      trendPct: salesTrendPct,
+      nextYear: typeof nextPeriod === 'number' ? nextPeriod : parseInt(nextPeriod) || new Date().getFullYear() + 1,
+      status: data.status || "Ready",
+      model: data.model || "Ensemble ML",
     };
   } catch (err) {
     console.warn("Failed to normalize forecast:", data, err);
+    return null;
+  }
+}
+
+/**
+ * Normalize summary row from API with dual forecasting support
+ */
+export function normalizeSummaryRow(data: any): any {
+  if (!data) return null;
+
+  try {
+    const salesAvgForecast = data.sales_avg_forecast ?? data.avgForecast ?? data.avg_forecast ?? 0;
+    const salesTrendPct = data.sales_trend_pct ?? data.trendPct ?? data.trend_pct ?? 0;
+    const nextPeriod = data.next_period ?? data.nextYear ?? data.next_year ?? (new Date().getFullYear() + 1);
+    
+    // Calculate trend labels
+    const salesTrendLabel = salesTrendPct > 5 ? "Growth" : salesTrendPct < -5 ? "Decline" : "Stable";
+    const qtyTrendLabel = (data.qty_trend_pct ?? 0) > 5 ? "Growth" : (data.qty_trend_pct ?? 0) < -5 ? "Decline" : "Stable";
+    
+    return {
+      ref: data.ref || data.ref_article || "N/A",
+      designation: data.designation || data.name || "Product",
+      marque: data.marque || data.brand || undefined,
+      famille: data.famille || data.family || undefined,
+      
+      // Sales forecasts
+      sales_avg_forecast: salesAvgForecast,
+      sales_sma_forecast: data.sales_sma_forecast,
+      sales_ema_forecast: data.sales_ema_forecast,
+      sales_linear_forecast: data.sales_linear_forecast,
+      sales_arima_forecast: data.sales_arima_forecast,
+      sales_prophet_forecast: data.sales_prophet_forecast,
+      sales_xgboost_forecast: data.sales_xgboost_forecast,
+      sales_trend_pct: salesTrendPct,
+      sales_trend_label: salesTrendLabel,
+      
+      // Quantity forecasts
+      qty_avg_forecast: data.qty_avg_forecast ?? 0,
+      qty_sma_forecast: data.qty_sma_forecast,
+      qty_ema_forecast: data.qty_ema_forecast,
+      qty_linear_forecast: data.qty_linear_forecast,
+      qty_arima_forecast: data.qty_arima_forecast,
+      qty_prophet_forecast: data.qty_prophet_forecast,
+      qty_xgboost_forecast: data.qty_xgboost_forecast,
+      qty_trend_pct: data.qty_trend_pct ?? 0,
+      qty_trend_label: qtyTrendLabel,
+      
+      // Common fields
+      next_period: String(nextPeriod),
+      frequency: data.frequency || "yearly",
+      confidence: data.confidence,
+      anomaly_score: data.anomaly_score,
+      
+      // Legacy compatibility
+      avgForecast: salesAvgForecast,
+      trendPct: salesTrendPct,
+      trendLabel: data.trendLabel ?? salesTrendLabel,
+    };
+  } catch (err) {
+    console.warn("Failed to normalize summary row:", data, err);
     return null;
   }
 }
@@ -178,6 +276,7 @@ export function normalizePaginatedResponse(data: any): { items: any[]; total: nu
 
 /**
  * Transform dashboard data to KPI metrics with calculations
+ * Now supports dual forecasting (sales + quantities)
  */
 export function transformDashboardToKPIs(data: any): KPIMetric[] {
   if (!data || !Array.isArray(data)) return [];
@@ -185,9 +284,9 @@ export function transformDashboardToKPIs(data: any): KPIMetric[] {
   try {
     const kpis: KPIMetric[] = [];
 
-    // Calculate totals
+    // Calculate sales totals
     const totalSales = data.reduce((sum: number, row: any) => {
-      const value = row.ca_ht_net || row.sales || row.value || 0;
+      const value = row.sales_avg_forecast ?? row.avgForecast ?? (row.ca_ht_net || row.sales || row.value || 0);
       return sum + (typeof value === "number" ? value : parseFloat(value) || 0);
     }, 0);
 
@@ -195,16 +294,24 @@ export function transformDashboardToKPIs(data: any): KPIMetric[] {
     const maxSales = data.length > 0
       ? Math.max(
           ...data.map((r: any) => {
-            const value = r.ca_ht_net || r.sales || r.value || 0;
+            const value = r.sales_avg_forecast ?? r.avgForecast ?? (r.ca_ht_net || r.sales || r.value || 0);
             return typeof value === "number" ? value : parseFloat(value) || 0;
           })
         )
       : 0;
 
+    // Calculate quantity totals
+    const totalQty = data.reduce((sum: number, row: any) => {
+      const value = row.qty_avg_forecast || 0;
+      return sum + (typeof value === "number" ? value : parseFloat(value) || 0);
+    }, 0);
+
+    const avgQty = data.length > 0 ? totalQty / data.length : 0;
+
     // KPI: Total Sales
     kpis.push({
       id: "kpi-total-sales",
-      label: "Total Sales",
+      label: "Total Sales Forecast",
       value: (totalSales / 1000).toFixed(1) + "K",
       unit: "$",
       delta: 12.5,
@@ -216,7 +323,7 @@ export function transformDashboardToKPIs(data: any): KPIMetric[] {
     // KPI: Average Sales
     kpis.push({
       id: "kpi-avg-sales",
-      label: "Average Sales",
+      label: "Avg Sales Forecast",
       value: (avgSales / 1000).toFixed(1) + "K",
       unit: "$",
       delta: 5.2,
@@ -228,13 +335,37 @@ export function transformDashboardToKPIs(data: any): KPIMetric[] {
     // KPI: Peak Sales
     kpis.push({
       id: "kpi-max-sales",
-      label: "Peak Sales",
+      label: "Peak Sales Forecast",
       value: (maxSales / 1000).toFixed(0) + "K",
       unit: "$",
       delta: -3.1,
       deltaTrend: "down",
       comparison_period: "vs last period",
       icon: "Target",
+    });
+
+    // KPI: Total Quantities
+    kpis.push({
+      id: "kpi-total-qty",
+      label: "Total Qty Forecast",
+      value: totalQty.toFixed(0),
+      unit: "units",
+      delta: 8.3,
+      deltaTrend: "up",
+      comparison_period: "vs last period",
+      icon: "Package",
+    });
+
+    // KPI: Average Quantities
+    kpis.push({
+      id: "kpi-avg-qty",
+      label: "Avg Qty Forecast",
+      value: avgQty.toFixed(1),
+      unit: "units",
+      delta: 4.7,
+      deltaTrend: "up",
+      comparison_period: "vs last period",
+      icon: "BoxSelect",
     });
 
     // KPI: Article Count
@@ -255,3 +386,74 @@ export function transformDashboardToKPIs(data: any): KPIMetric[] {
     return [];
   }
 }
+
+/**
+ * Normalize dashboard documents response
+ */
+export function normalizeDashboardDocuments(response: any): any {
+  if (!response) return { data: [], total: 0, filtered: 0, limit: 0, offset: 0 };
+
+  try {
+    const data = Array.isArray(response.data) 
+      ? response.data.map((row: any) => normalizeSummaryRow(row)).filter(Boolean)
+      : [];
+
+    return {
+      data,
+      total: response.total || data.length,
+      filtered: response.filtered ?? response.total ?? data.length,
+      limit: response.limit || 1000,
+      offset: response.offset || 0,
+      data_source: response.data_source || "unknown",
+    };
+  } catch (err) {
+    console.error("Failed to normalize dashboard documents:", err);
+    return { data: [], total: 0, filtered: 0, limit: 0, offset: 0 };
+  }
+}
+
+/**
+ * Normalize dashboard metrics response
+ */
+export function normalizeDashboardMetrics(response: any): any {
+  if (!response) return null;
+
+  try {
+    return {
+      total_rows: response.total_rows || 0,
+      
+      // Sales aggregates
+      sales_avg_forecast: response.sales_avg_forecast || 0,
+      sales_sma_forecast: response.sales_sma_forecast,
+      sales_ema_forecast: response.sales_ema_forecast,
+      sales_linear_forecast: response.sales_linear_forecast,
+      
+      // Quantity aggregates
+      qty_avg_forecast: response.qty_avg_forecast || 0,
+      qty_sma_forecast: response.qty_sma_forecast,
+      qty_ema_forecast: response.qty_ema_forecast,
+      qty_linear_forecast: response.qty_linear_forecast,
+      
+      // Top articles
+      top_articles_by_sales: Array.isArray(response.top_articles_by_sales)
+        ? response.top_articles_by_sales.map((row: any) => normalizeSummaryRow(row)).filter(Boolean)
+        : [],
+      top_articles_by_qty: Array.isArray(response.top_articles_by_qty)
+        ? response.top_articles_by_qty.map((row: any) => normalizeSummaryRow(row)).filter(Boolean)
+        : [],
+      
+      // Aggregations
+      top_marques_by_sales: response.top_marques_by_sales || [],
+      top_marques_by_qty: response.top_marques_by_qty || [],
+      top_familles_by_sales: response.top_familles_by_sales || [],
+      top_familles_by_qty: response.top_familles_by_qty || [],
+      
+      frequency: response.frequency || "yearly",
+      data_source: response.data_source || "unknown",
+    };
+  } catch (err) {
+    console.error("Failed to normalize dashboard metrics:", err);
+    return null;
+  }
+}
+
