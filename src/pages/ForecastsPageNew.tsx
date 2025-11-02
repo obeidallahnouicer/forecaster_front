@@ -40,18 +40,32 @@ import { FileUploader } from "@/components";
 import { ForecastSettings } from "@/components/forecast";
 import { ForecastArticleCard, ForecastDetailPanel, ForecastMetricsDashboard } from "@/components/forecast";
 import { cn } from "@/lib/utils";
+import { 
+  getSalesForecast, 
+  getSalesTrend, 
+  normalizeArticleForDisplay 
+} from "@/utils/forecastHelpers";
 
 interface ForecastArticle {
   ref_article: string;
   designation: string;
   marque?: string;
   famille?: string;
-  avg_forecast: number;
-  trend_pct: number;
-  trend_label: string;
+  
+  // New dual forecasting fields
+  sales_avg_forecast?: number;
+  qty_avg_forecast?: number;
+  sales_trend_pct?: number;
+  qty_trend_pct?: number;
+  
+  // Legacy fields (for backward compatibility)
+  avg_forecast?: number;
+  trend_pct?: number;
+  trend_label?: string;
+  
   data_points?: number;
-  next_period: number;
-  frequency: string;
+  next_period?: number | string;
+  frequency?: string;
   historical_periods?: string | number[];
   historical_values?: string | number[];
   historical_values_list?: number[];
@@ -127,10 +141,10 @@ const ForecastsPage: React.FC = () => {
         (forecast.ref_article && forecast.ref_article.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (forecast.marque && forecast.marque.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      // Trend filter
+      // Trend filter - use helper function
       let matchesTrend = true;
       if (trendFilter !== "all") {
-        const trendPct = forecast.trend_pct || 0;
+        const trendPct = getSalesTrend(forecast);
         if (trendFilter === "uptrend") matchesTrend = trendPct > 5;
         else if (trendFilter === "downtrend") matchesTrend = trendPct < -5;
         else if (trendFilter === "stable") matchesTrend = Math.abs(trendPct) <= 5;
@@ -323,14 +337,14 @@ const ForecastsPage: React.FC = () => {
           avg_forecast: summary.avg_forecast || 0,
           total_forecast: summary.total_forecast || 0,
           trend_distribution: summary.trend_distribution || {
-            uptrend: forecastResults.filter(f => (f.trend_pct || 0) > 5).length,
-            downtrend: forecastResults.filter(f => (f.trend_pct || 0) < -5).length,
-            stable: forecastResults.filter(f => Math.abs(f.trend_pct || 0) <= 5).length,
+            uptrend: forecastResults.filter(f => getSalesTrend(f) > 5).length,
+            downtrend: forecastResults.filter(f => getSalesTrend(f) < -5).length,
+            stable: forecastResults.filter(f => Math.abs(getSalesTrend(f)) <= 5).length,
           },
           top_products: summary.top_products || forecastResults.slice(0, 5).map(f => ({
             ref_article: f.ref_article,
             designation: f.designation,
-            avg_forecast: f.avg_forecast,
+            avg_forecast: getSalesForecast(f),
           })),
         };
 
@@ -342,11 +356,11 @@ const ForecastsPage: React.FC = () => {
       
       // Fallback: calculate summary from forecast results
       if (forecastResults.length > 0) {
-        const uptrendCount = forecastResults.filter(f => (f.trend_pct || 0) > 5).length;
-        const downtrendCount = forecastResults.filter(f => (f.trend_pct || 0) < -5).length;
-        const stableCount = forecastResults.filter(f => Math.abs(f.trend_pct || 0) <= 5).length;
+        const uptrendCount = forecastResults.filter(f => getSalesTrend(f) > 5).length;
+        const downtrendCount = forecastResults.filter(f => getSalesTrend(f) < -5).length;
+        const stableCount = forecastResults.filter(f => Math.abs(getSalesTrend(f)) <= 5).length;
         
-        const totalForecast = forecastResults.reduce((sum, f) => sum + (f.avg_forecast || 0), 0);
+        const totalForecast = forecastResults.reduce((sum, f) => sum + getSalesForecast(f), 0);
         const avgForecast = totalForecast / forecastResults.length;
 
         setSummaryData({
@@ -359,12 +373,12 @@ const ForecastsPage: React.FC = () => {
             stable: stableCount,
           },
           top_products: forecastResults
-            .sort((a, b) => (b.avg_forecast || 0) - (a.avg_forecast || 0))
+            .sort((a, b) => getSalesForecast(b) - getSalesForecast(a))
             .slice(0, 5)
             .map(f => ({
               ref_article: f.ref_article,
               designation: f.designation,
-              avg_forecast: f.avg_forecast,
+              avg_forecast: getSalesForecast(f),
             })),
         });
       }
@@ -699,7 +713,7 @@ const ForecastsPage: React.FC = () => {
                   }
                 }}>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                    <TabsList>
+                    {/* <TabsList>
                       <TabsTrigger value="overview" className="gap-2">
                         <BarChart3 className="w-4 h-4" />
                         Overview
@@ -708,7 +722,7 @@ const ForecastsPage: React.FC = () => {
                         <Package className="w-4 h-4" />
                         Articles ({filteredForecasts.length})
                       </TabsTrigger>
-                    </TabsList>
+                    </TabsList> */}
 
                     <div className="flex items-center gap-2">
                       <Button
@@ -749,7 +763,29 @@ const ForecastsPage: React.FC = () => {
                         </CardContent>
                       </Card>
                     ) : summaryData ? (
-                      <ForecastMetricsDashboard summary={summaryData} frequency={sessionFrequency} />
+                      <ForecastMetricsDashboard 
+                        metrics={{
+                          total_rows: summaryData.total_products,
+                          sales_avg_forecast: summaryData.avg_forecast || 0,
+                          qty_avg_forecast: 0, // Not available in old SummaryData format
+                          top_articles_by_sales: summaryData.top_products?.map(p => ({
+                            ref: p.ref_article,
+                            designation: p.designation,
+                            sales_avg_forecast: p.avg_forecast || 0,
+                            qty_avg_forecast: 0,
+                            sales_trend_pct: 0,
+                            qty_trend_pct: 0,
+                            next_period: "N/A",
+                            frequency: sessionFrequency as "yearly" | "monthly",
+                          })) || [],
+                          top_articles_by_qty: [],
+                          frequency: sessionFrequency,
+                          data_source: "forecaster_cache",
+                        }} 
+                        frequency={sessionFrequency} 
+                        showSales={true}
+                        showQuantities={false}
+                      />
                     ) : (
                       <Card className="border-2 border-dashed">
                         <CardContent className="flex flex-col items-center justify-center py-16">
