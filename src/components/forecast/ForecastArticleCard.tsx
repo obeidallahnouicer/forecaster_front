@@ -1,10 +1,11 @@
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, ArrowUpRight, ArrowDownRight, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ArrowUpRight, ArrowDownRight, BarChart3, Package, DollarSign } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 import { uiColors } from '@/theme/theme';
+import { getSalesForecast, getSalesTrend, getSalesTrendLabel, getQuantityForecast, getQuantityTrend } from "@/utils/forecastHelpers";
 
 interface ForecastArticleCardProps {
   article: {
@@ -12,12 +13,19 @@ interface ForecastArticleCardProps {
     designation: string;
     marque?: string;
     famille?: string;
-    avg_forecast: number;
-    trend_pct: number;
-    trend_label: string;
+    
+    // Dual forecasting fields (new)
+    sales_avg_forecast?: number;
+    sales_trend_pct?: number;
+    
+    // Legacy fields
+    avg_forecast?: number;
+    trend_pct?: number;
+    trend_label?: string;
+    
     data_points?: number;
-    next_period: number;
-    frequency: string;
+    next_period?: number | string;
+    frequency?: string;
     historical_periods?: string | number[];
     historical_values?: string | number[];
     historical_values_list?: number[];
@@ -27,6 +35,14 @@ interface ForecastArticleCardProps {
 }
 
 const ForecastArticleCard: React.FC<ForecastArticleCardProps> = ({ article, onClick, isSelected }) => {
+  // Get values using helper functions for backward compatibility
+  const avgForecast = getSalesForecast(article);
+  const trendPct = getSalesTrend(article);
+  const trendLabel = getSalesTrendLabel(article);
+  
+  const qtyForecast = getQuantityForecast(article);
+  const qtyTrend = getQuantityTrend(article);
+  
   // Parse historical data for sparkline with useMemo
   const chartData = useMemo(() => {
     try {
@@ -48,7 +64,6 @@ const ForecastArticleCard: React.FC<ForecastArticleCardProps> = ({ article, onCl
     }
   }, [article.historical_periods, article.historical_values, article.historical_values_list, article.ref_article]);
 
-  const trendPct = article.trend_pct || 0;
   const isUptrend = trendPct > 5;
   const isDowntrend = trendPct < -5;
   const isStable = Math.abs(trendPct) <= 5;
@@ -85,31 +100,63 @@ const ForecastArticleCard: React.FC<ForecastArticleCardProps> = ({ article, onCl
           
           <Badge className={cn("shrink-0", trendBgColor, trendColor)}>
             <TrendIcon className="w-3 h-3 mr-1" />
-            {article.trend_label || (isUptrend ? "Growth" : isDowntrend ? "Decline" : "Stable")}
+            {trendLabel || (isUptrend ? "Growth" : isDowntrend ? "Decline" : "Stable")}
           </Badge>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Forecast Value */}
-        <div className="flex items-baseline justify-between">
-          <div>
-            <div className="text-xs text-muted-foreground">
-              {article.frequency === "monthly" ? "Avg Monthly Forecast" : "Avg Yearly Forecast"}
-            </div>
-            <div className="text-2xl font-bold">
-              {article.avg_forecast?.toLocaleString(undefined, { 
-                minimumFractionDigits: 0, 
-                maximumFractionDigits: 0 
-              }) || "N/A"}
+        {/* Sales Forecast */}
+        <div className="flex items-baseline justify-between pb-3 border-b">
+          <div className="flex items-start gap-2">
+            <DollarSign className="w-4 h-4 mt-1 text-green-600" />
+            <div>
+              <div className="text-xs text-muted-foreground">
+                Sales {article.frequency === "monthly" ? "(Monthly)" : "(Yearly)"}
+              </div>
+              <div className="text-xl font-bold">
+                €{avgForecast.toLocaleString(undefined, { 
+                  minimumFractionDigits: 0, 
+                  maximumFractionDigits: 0 
+                })}
+              </div>
             </div>
           </div>
           
           <div className="text-right">
             <div className="text-xs text-muted-foreground">Trend</div>
-            <div className={cn("text-lg font-semibold flex items-center gap-1", trendColor)}>
-              {trendPct > 0 ? <ArrowUpRight className="w-4 h-4" /> : trendPct < 0 ? <ArrowDownRight className="w-4 h-4" /> : null}
+            <div className={cn("text-sm font-semibold flex items-center gap-1", trendColor)}>
+              {trendPct > 0 ? <ArrowUpRight className="w-3 h-3" /> : trendPct < 0 ? <ArrowDownRight className="w-3 h-3" /> : null}
               {Math.abs(trendPct).toFixed(1)}%
+            </div>
+          </div>
+        </div>
+
+        {/* Quantity Forecast */}
+        <div className="flex items-baseline justify-between pb-3">
+          <div className="flex items-start gap-2">
+            <Package className="w-4 h-4 mt-1 text-blue-600" />
+            <div>
+              <div className="text-xs text-muted-foreground">
+                Quantity {article.frequency === "monthly" ? "(Monthly)" : "(Yearly)"}
+              </div>
+              <div className="text-xl font-bold">
+                {qtyForecast.toLocaleString(undefined, { 
+                  minimumFractionDigits: 0, 
+                  maximumFractionDigits: 0 
+                })} units
+              </div>
+            </div>
+          </div>
+          
+          <div className="text-right">
+            <div className="text-xs text-muted-foreground">Trend</div>
+            <div className={cn(
+              "text-sm font-semibold flex items-center gap-1",
+              qtyTrend > 5 ? "text-green-600" : qtyTrend < -5 ? "text-red-600" : "text-yellow-600"
+            )}>
+              {qtyTrend > 0 ? <ArrowUpRight className="w-3 h-3" /> : qtyTrend < 0 ? <ArrowDownRight className="w-3 h-3" /> : null}
+              {Math.abs(qtyTrend).toFixed(1)}%
             </div>
           </div>
         </div>
