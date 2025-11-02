@@ -17,6 +17,8 @@ interface ModelComparisonProps {
     sma?: { forecast: number; metrics: ModelMetrics };
     es?: { forecast: number; metrics: ModelMetrics };
     lr?: { forecast: number; metrics: ModelMetrics };
+    arima?: { forecast: number; metrics: ModelMetrics };
+    prophet?: { forecast: number; metrics: ModelMetrics };
     xgb?: { forecast: number; metrics: ModelMetrics };
   };
   
@@ -25,6 +27,8 @@ interface ModelComparisonProps {
     sma?: { forecast: number; metrics: ModelMetrics };
     es?: { forecast: number; metrics: ModelMetrics };
     lr?: { forecast: number; metrics: ModelMetrics };
+    arima?: { forecast: number; metrics: ModelMetrics };
+    prophet?: { forecast: number; metrics: ModelMetrics };
     xgb?: { forecast: number; metrics: ModelMetrics };
   };
 }
@@ -36,6 +40,8 @@ const ModelComparison: React.FC<ModelComparisonProps> = ({ salesModels, qtyModel
     sma: "Simple Moving Average (SMA)",
     es: "Exponential Smoothing (ES)",
     lr: "Linear Regression (LR)",
+    arima: "ARIMA",
+    prophet: "Prophet (META)",
     xgb: "XGBoost (XGB)",
   };
 
@@ -112,7 +118,7 @@ const ModelComparison: React.FC<ModelComparisonProps> = ({ salesModels, qtyModel
                 No sales model data available
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {salesModelsArray.map((model) => (
                   <ModelPerformanceCard
                     key={model.name}
@@ -135,7 +141,7 @@ const ModelComparison: React.FC<ModelComparisonProps> = ({ salesModels, qtyModel
                 No quantity model data available
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {qtyModelsArray.map((model) => (
                   <ModelPerformanceCard
                     key={model.name}
