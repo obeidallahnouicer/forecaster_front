@@ -2,10 +2,12 @@ import React, { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { TrendingUp, TrendingDown, Minus, BarChart3, Calendar, Package, Tag } from "lucide-react";
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend, Bar, ComposedChart } from "recharts";
-import { uiColors } from '@/theme/theme';
+import { TrendingUp, TrendingDown, Minus, Package, Tag, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSalesForecast, getSalesTrend, getSalesTrendLabel, getQuantityForecast, getQuantityTrend, getQuantityTrendLabel } from "@/utils/forecastHelpers";
+import HistoricalProgressChart from "./HistoricalProgressChart";
+import ModelComparison from "./ModelComparison";
+import { ModelMetrics } from "./ModelPerformanceCard";
 
 interface ForecastDetailPanelProps {
   forecast: {
@@ -13,21 +15,59 @@ interface ForecastDetailPanelProps {
     designation: string;
     marque?: string;
     famille?: string;
-    avg_forecast: number;
-    trend_pct: number;
-    trend_label: string;
+    
+    // Dual forecasting fields (new)
+    sales_avg_forecast?: number;
+    sales_trend_pct?: number;
+    qty_avg_forecast?: number;
+    qty_trend_pct?: number;
+    
+    // Legacy fields
+    avg_forecast?: number;
+    trend_pct?: number;
+    trend_label?: string;
+    
     data_points?: number;
-    next_period: number;
-    frequency: string;
+    next_period?: number | string;
+    frequency?: string;
     historical_periods?: string | number[];
     historical_values?: string | number[];
     historical_values_list?: number[];
+    historical_sales?: number[];
+    historical_quantities?: number[];
     min_sales?: number;
     max_sales?: number;
     avg_sales?: number;
+    sales_avg?: number;
     std_sales?: number;
+    avg_quantities?: number;
+    qty_avg?: number;
     
-    // Method-specific forecasts
+    // Sales model forecasts
+    sales_sma_forecast?: number;
+    sales_es_forecast?: number;
+    sales_lr_forecast?: number;
+    sales_xgb_forecast?: number;
+    
+    // Quantity model forecasts
+    qty_sma_forecast?: number;
+    qty_es_forecast?: number;
+    qty_lr_forecast?: number;
+    qty_xgb_forecast?: number;
+    
+    // Sales model metrics
+    sales_sma_metrics?: ModelMetrics;
+    sales_es_metrics?: ModelMetrics;
+    sales_lr_metrics?: ModelMetrics;
+    sales_xgb_metrics?: ModelMetrics;
+    
+    // Quantity model metrics
+    qty_sma_metrics?: ModelMetrics;
+    qty_es_metrics?: ModelMetrics;
+    qty_lr_metrics?: ModelMetrics;
+    qty_xgb_metrics?: ModelMetrics;
+    
+    // Legacy method-specific forecasts
     sma_forecast?: number;
     es_forecast?: number;
     lr_forecast?: number;
@@ -35,7 +75,7 @@ interface ForecastDetailPanelProps {
     arima_forecast?: number;
     prophet_forecast?: number;
     
-    // Metrics
+    // Legacy Metrics (string-encoded JSON)
     sma_metrics?: string;
     es_metrics?: string;
     lr_metrics?: string;
@@ -46,36 +86,111 @@ interface ForecastDetailPanelProps {
 }
 
 const ForecastDetailPanel: React.FC<ForecastDetailPanelProps> = ({ forecast }) => {
-  // Parse historical data with useMemo to avoid recalculation
-  const historicalData = useMemo(() => {
+  // Get values using helper functions for backward compatibility
+  const avgForecast = getSalesForecast(forecast);
+  const trendPct = getSalesTrend(forecast);
+  const trendLabel = getSalesTrendLabel(forecast);
+  
+  const qtyForecast = getQuantityForecast(forecast);
+  const qtyTrend = getQuantityTrend(forecast);
+  const qtyTrendLabel = getQuantityTrendLabel(forecast);
+  
+  // Parse historical periods
+  const historicalPeriods = useMemo(() => {
     try {
-      const periods = typeof forecast.historical_periods === "string" 
-        ? JSON.parse(forecast.historical_periods) 
+      const periods = typeof forecast.historical_periods === "string"
+        ? JSON.parse(forecast.historical_periods)
         : forecast.historical_periods || [];
-      
-      const values = typeof forecast.historical_values === "string" 
-        ? JSON.parse(forecast.historical_values) 
-        : forecast.historical_values_list || forecast.historical_values || [];
-      
-      return periods.map((period: any, idx: number) => ({
-        period: String(period),
-        value: values[idx] || 0,
-      }));
+      return periods;
     } catch (error) {
-      console.warn("Failed to parse historical data", error);
+      console.warn("Failed to parse historical_periods", error);
       return [];
     }
-  }, [forecast.historical_periods, forecast.historical_values, forecast.historical_values_list]);
-
-  // Add forecast point to the end with useMemo
-  const chartData = useMemo(() => [
-    ...historicalData,
-    {
-      period: String(forecast.next_period),
-      value: forecast.avg_forecast,
-      isForecast: true,
-    },
-  ], [historicalData, forecast.next_period, forecast.avg_forecast]);
+  }, [forecast.historical_periods]);
+  
+  // Parse historical sales
+  const historicalSales = useMemo(() => {
+    if (forecast.historical_sales && Array.isArray(forecast.historical_sales)) {
+      return forecast.historical_sales;
+    }
+    // Fallback to historical_values if available
+    try {
+      const values = typeof forecast.historical_values === "string"
+        ? JSON.parse(forecast.historical_values)
+        : forecast.historical_values_list || forecast.historical_values || [];
+      return values;
+    } catch (error) {
+      console.warn("Failed to parse historical_sales", error);
+      return [];
+    }
+  }, [forecast.historical_sales, forecast.historical_values, forecast.historical_values_list]);
+  
+  // Parse historical quantities
+  const historicalQuantities = useMemo(() => {
+    if (forecast.historical_quantities && Array.isArray(forecast.historical_quantities)) {
+      return forecast.historical_quantities;
+    }
+    return [];
+  }, [forecast.historical_quantities]);
+  
+  // Prepare sales models data
+  const salesModels = useMemo(() => ({
+    sma: forecast.sales_sma_forecast && forecast.sales_sma_metrics ? {
+      forecast: forecast.sales_sma_forecast,
+      metrics: forecast.sales_sma_metrics
+    } : undefined,
+    es: forecast.sales_es_forecast && forecast.sales_es_metrics ? {
+      forecast: forecast.sales_es_forecast,
+      metrics: forecast.sales_es_metrics
+    } : undefined,
+    lr: forecast.sales_lr_forecast && forecast.sales_lr_metrics ? {
+      forecast: forecast.sales_lr_forecast,
+      metrics: forecast.sales_lr_metrics
+    } : undefined,
+    xgb: forecast.sales_xgb_forecast && forecast.sales_xgb_metrics ? {
+      forecast: forecast.sales_xgb_forecast,
+      metrics: forecast.sales_xgb_metrics
+    } : undefined,
+  }), [forecast]);
+  
+  // Prepare quantity models data
+  const qtyModels = useMemo(() => ({
+    sma: forecast.qty_sma_forecast && forecast.qty_sma_metrics ? {
+      forecast: forecast.qty_sma_forecast,
+      metrics: forecast.qty_sma_metrics
+    } : undefined,
+    es: forecast.qty_es_forecast && forecast.qty_es_metrics ? {
+      forecast: forecast.qty_es_forecast,
+      metrics: forecast.qty_es_metrics
+    } : undefined,
+    lr: forecast.qty_lr_forecast && forecast.qty_lr_metrics ? {
+      forecast: forecast.qty_lr_forecast,
+      metrics: forecast.qty_lr_metrics
+    } : undefined,
+    xgb: forecast.qty_xgb_forecast && forecast.qty_xgb_metrics ? {
+      forecast: forecast.qty_xgb_forecast,
+      metrics: forecast.qty_xgb_metrics
+    } : undefined,
+  }), [forecast]);
+  
+  // Prepare model forecasts for chart (optional scatter points)
+  const modelForecasts = useMemo(() => {
+    if (!forecast.sales_sma_forecast && !forecast.sales_es_forecast) return undefined;
+    return {
+      sales_sma: forecast.sales_sma_forecast,
+      sales_es: forecast.sales_es_forecast,
+      sales_lr: forecast.sales_lr_forecast,
+      sales_xgb: forecast.sales_xgb_forecast,
+      qty_sma: forecast.qty_sma_forecast,
+      qty_es: forecast.qty_es_forecast,
+      qty_lr: forecast.qty_lr_forecast,
+      qty_xgb: forecast.qty_xgb_forecast,
+    };
+  }, [forecast]);
+  
+  // Check if we have model data to display
+  const hasModelData = Object.values(salesModels).some(m => m !== undefined) || 
+                        Object.values(qtyModels).some(m => m !== undefined);
 
   // Parse method metrics
   const parseMetrics = (metricsJson?: string) => {
@@ -111,7 +226,6 @@ const ForecastDetailPanel: React.FC<ForecastDetailPanelProps> = ({ forecast }) =
     forecast.prophet_metrics,
   ]);
 
-  const trendPct = forecast.trend_pct || 0;
   const isUptrend = trendPct > 5;
   const isDowntrend = trendPct < -5;
   const TrendIcon = isUptrend ? TrendingUp : isDowntrend ? TrendingDown : Minus;
@@ -150,110 +264,129 @@ const ForecastDetailPanel: React.FC<ForecastDetailPanelProps> = ({ forecast }) =
           
           <Badge className={cn("px-4 py-2", isUptrend ? "bg-green-100 text-green-700 border-green-200" : isDowntrend ? "bg-red-100 text-red-700 border-red-200" : "bg-yellow-100 text-yellow-700 border-yellow-200")}>
             <TrendIcon className="w-4 h-4 mr-2" />
-            {forecast.trend_label}
+            {trendLabel}
           </Badge>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Key Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Forecast ({forecast.frequency})</div>
-            <div className="text-2xl font-bold">
-              {forecast.avg_forecast?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </div>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Trend</div>
-            <div className={cn("text-2xl font-bold", trendColor)}>
-              {trendPct > 0 ? "+" : ""}{trendPct.toFixed(1)}%
-            </div>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Historical Avg</div>
-            <div className="text-2xl font-bold">
-              {forecast.avg_sales?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || "N/A"}
-            </div>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              Next Period
-            </div>
-            <div className="text-2xl font-bold">
-              {forecast.next_period}
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Historical + Forecast Chart */}
+        {/* Key Metrics - Sales */}
         <div>
-          <h3 className="text-sm font-semibold mb-3 inline-flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Historical Trend &amp; Forecast
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis 
-                dataKey="period" 
-                tick={{ fontSize: 12 }}
-                tickLine={false}
-              />
-              <YAxis 
-                tick={{ fontSize: 12 }}
-                tickLine={false}
-                tickFormatter={(value) => value.toLocaleString()}
-              />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const data = payload[0].payload;
-                    return (
-                      <div className="bg-popover border border-border rounded-md px-3 py-2 shadow-lg">
-                        <p className="text-sm font-semibold">{data.period}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {data.isForecast ? "Forecast: " : "Actual: "}
-                          {Number(payload[0].value).toLocaleString()}
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Legend />
-              <Bar 
-                dataKey="value" 
-                name={forecast.frequency === "monthly" ? "Monthly Sales" : "Yearly Sales"}
-                fill={uiColors.primary}
-                radius={[4, 4, 0, 0]}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                name="Trend"
-                stroke={isUptrend ? uiColors.trendUp : isDowntrend ? uiColors.trendDown : uiColors.trendStable}
-                strokeWidth={2}
-                dot={(props: any) => {
-                  const { payload, cx, cy, stroke } = props;
-                  if (payload.isForecast) {
-                    return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={6} fill="hsl(var(--accent))" stroke="#fff" strokeWidth={2} />;
-                  }
-                  return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={3} fill={stroke} />;
-                }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <div className="flex items-center gap-2 mb-3">
+            <DollarSign className="w-5 h-5 text-green-600" />
+            <h3 className="text-lg font-semibold">Sales Forecast</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Avg Forecast ({forecast.frequency || 'yearly'})</div>
+              <div className="text-2xl font-bold text-green-600">
+                €{avgForecast.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Trend</div>
+              <div className={cn("text-2xl font-bold", trendColor)}>
+                {trendPct > 0 ? "+" : ""}{trendPct.toFixed(1)}%
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Historical Avg</div>
+              <div className="text-2xl font-bold">
+                €{(forecast.avg_sales || forecast.sales_avg || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Next Period</div>
+              <div className="text-2xl font-bold">
+                {forecast.next_period || "N/A"}
+              </div>
+            </div>
+          </div>
         </div>
 
         <Separator />
+
+        {/* Key Metrics - Quantity */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Package className="w-5 h-5 text-blue-600" />
+            <h3 className="text-lg font-semibold">Quantity Forecast</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Avg Forecast ({forecast.frequency || 'yearly'})</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {qtyForecast.toLocaleString(undefined, { maximumFractionDigits: 0 })} units
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Trend</div>
+              <div className={cn(
+                "text-2xl font-bold",
+                qtyTrend > 5 ? "text-green-600" : qtyTrend < -5 ? "text-red-600" : "text-yellow-600"
+              )}>
+                {qtyTrend > 0 ? "+" : ""}{qtyTrend.toFixed(1)}%
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Historical Avg</div>
+              <div className="text-2xl font-bold">
+                {((forecast as any).avg_quantities || (forecast as any).qty_avg || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} units
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Data Points</div>
+              <div className="text-2xl font-bold">
+                {forecast.data_points || 0}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* NEW: Historical Progress Chart with Dual Axis */}
+        {historicalPeriods.length > 0 && historicalSales.length > 0 && historicalQuantities.length > 0 && (
+          <>
+            <div>
+              <h3 className="text-sm font-semibold mb-3 inline-flex items-center gap-2">
+                📈 Historical Progress &amp; Forecast
+              </h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                Track historical sales (€) and quantities (units) with projected forecasts
+              </p>
+              <HistoricalProgressChart
+                historicalPeriods={historicalPeriods}
+                historicalSales={historicalSales}
+                historicalQuantities={historicalQuantities}
+                salesAvgForecast={avgForecast}
+                qtyAvgForecast={qtyForecast}
+                nextPeriod={forecast.next_period || "N/A"}
+                modelForecasts={modelForecasts}
+              />
+            </div>
+
+            <Separator />
+          </>
+        )}
+
+        {/* NEW: Model Performance Comparison */}
+        {hasModelData && (
+          <>
+            <ModelComparison
+              salesModels={salesModels}
+              qtyModels={qtyModels}
+            />
+
+            <Separator />
+          </>
+        )}
 
         {/* Method Breakdown */}
         {methods.length > 0 && (
@@ -278,7 +411,7 @@ const ForecastDetailPanel: React.FC<ForecastDetailPanelProps> = ({ forecast }) =
         )}
 
         {/* Statistical Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+        {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
           <div>
             <div className="text-xs text-muted-foreground">Min Sales</div>
             <div className="text-sm font-semibold">
@@ -300,10 +433,10 @@ const ForecastDetailPanel: React.FC<ForecastDetailPanelProps> = ({ forecast }) =
           <div>
             <div className="text-xs text-muted-foreground">Data Points</div>
             <div className="text-sm font-semibold">
-              {forecast.data_points || historicalData.length}
+              {forecast.data_points || 0}
             </div>
           </div>
-        </div>
+        </div> */}
       </CardContent>
     </Card>
   );
