@@ -9,11 +9,19 @@ RUN npm ci --legacy-peer-deps || true
 COPY . .
 RUN npm run build
 
-FROM nginx:stable-alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Use a simple Node runtime stage (no nginx)
+FROM node:18-alpine
+WORKDIR /app
 
-# Provide a basic nginx config for SPA routing and optional API proxy
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy built artifacts from builder
+COPY --from=builder /app/dist ./dist
 
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Copy the simple proxy server
+COPY server.js ./server.js
+
+# Install express and http-proxy-middleware for the proxy server
+RUN npm install express http-proxy-middleware
+
+EXPOSE 3000
+# Run the proxy server that serves static files and proxies API calls
+CMD ["node", "server.js"]

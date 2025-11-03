@@ -6,7 +6,12 @@ services:
       dockerfile: Dockerfile
     image: forecaster_frontend:latest
     ports:
-      - "3000:80"
+      - "3000:3000"
     environment:
-      VITE_API_URL: "http://host.docker.internal:8000/api"
+      # Frontend uses this at build time. The proxy server will handle backend routing.
+      VITE_API_URL: "http://127.0.0.1:8000/api"
+      # Backend target for the Node proxy server
+      API_TARGET: "http://127.0.0.1:8000/api"
+      PORT: "3000"
+    network_mode: "host"
     restart: unless-stopped
