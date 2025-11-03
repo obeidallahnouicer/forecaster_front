@@ -3,7 +3,7 @@
 
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export interface PaginatedResponse<T> {
   count: number;
@@ -188,7 +188,7 @@ export class APIClient {
     formData.append("file", file);
     formData.append("frequency", frequency);
 
-    const resp = await this.client.post("/forecasts/upload", formData, {
+    const resp = await this.client.post("forecasts/upload", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
